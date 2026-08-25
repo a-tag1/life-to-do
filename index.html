@@ -30,9 +30,9 @@
     <section id="view-today" class="view">
       <div class="view-content">
 
-        <div class="schedule-section">
-          <div class="section-header">
-            <span class="section-label">予定</span>
+        <div class="schedule-section plan-section collapsed">
+          <div class="section-header plan-toggle">
+            <span class="section-label">予定 <span class="chevron">›</span></span>
             <div class="input-actions">
               <button class="btn-now" data-target="plan-textarea">今</button>
               <button class="btn-template" data-target="plan-textarea">テンプレ</button>
@@ -49,6 +49,7 @@
           <div class="section-header">
             <span class="section-label">実績</span>
             <div class="input-actions">
+              <button id="btn-copy-plan" class="btn-copy">予定をコピー</button>
               <button class="btn-now" data-target="actual-textarea">今</button>
               <button class="btn-template" data-target="actual-textarea">テンプレ</button>
             </div>

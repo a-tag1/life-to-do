@@ -169,6 +169,20 @@ function initTodayView() {
   planTA = document.getElementById('plan-textarea');
   actualTA = document.getElementById('actual-textarea');
 
+  // 予定セクションの折りたたみトグル（ボタン操作は除外）
+  const planSection = planTA.closest('.plan-section');
+  planSection.querySelector('.plan-toggle').addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    planSection.classList.toggle('collapsed');
+  });
+
+  // 予定→実績コピー
+  document.getElementById('btn-copy-plan').addEventListener('click', () => {
+    actualTA.value = planTA.value;
+    actualTA.dispatchEvent(new Event('input', { bubbles: true }));
+    autoResize(actualTA);
+  });
+
   planTA.addEventListener('input', e => _savePlan(e.target.value));
   actualTA.addEventListener('input', e => _saveActual(e.target.value));
 

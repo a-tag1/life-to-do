@@ -126,6 +126,24 @@ input,textarea,select { font-family:inherit; color:var(--text); }
 }
 .schedule-section:focus-within { border-color:var(--accent); }
 
+/* 予定の折りたたみ */
+.plan-toggle { cursor:pointer; user-select:none; }
+.chevron {
+  display:inline-block; font-style:normal;
+  transition:transform 220ms var(--ease);
+  transform:rotate(90deg);
+  opacity:0.5; margin-left:3px;
+}
+.plan-section.collapsed .chevron { transform:rotate(0deg); }
+.plan-section .schedule-textarea {
+  max-height:600px;
+  transition:max-height 240ms ease, padding-top 240ms ease, padding-bottom 240ms ease, min-height 240ms ease;
+}
+.plan-section.collapsed .schedule-textarea {
+  max-height:0 !important; min-height:0 !important;
+  padding-top:0; padding-bottom:0; overflow:hidden;
+}
+
 .section-header {
   display:flex; align-items:center; justify-content:space-between;
   padding:9px 14px; border-bottom:1px solid var(--sep);
@@ -153,6 +171,13 @@ input,textarea,select { font-family:inherit; color:var(--text); }
   transition:background var(--ease),color var(--ease);
 }
 .btn-template:active { background:var(--inset); color:var(--text); }
+.btn-copy {
+  background:none; color:var(--text-2); border:1px solid var(--sep-2);
+  border-radius:var(--r-pill); padding:5px 12px;
+  font-size:11px; font-weight:500; min-height:30px;
+  transition:background var(--ease),color var(--ease);
+}
+.btn-copy:active { background:var(--inset); color:var(--text); }
 
 /* テキストエリア -- 微細な内側シャドウで「書く場所」を演出 */
 .schedule-textarea {
@@ -161,6 +186,7 @@ input,textarea,select { font-family:inherit; color:var(--text); }
   background:var(--inset); color:var(--text); min-height:165px; display:block;
   box-shadow:inset 0 1px 4px rgba(0,0,0,0.05);
 }
+#actual-textarea { min-height:400px; }
 @media (prefers-color-scheme: dark) {
   .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.35); }
 }
