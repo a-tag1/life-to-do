@@ -1,0 +1,20 @@
+{
+  "name": "LifeToDo",
+  "short_name": "LifeToDo",
+  "description": "予定と実績をテキストベースで管理するモバイル向けPWA",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#121212",
+  "theme_color": "#6c63ff",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
