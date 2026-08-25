@@ -202,8 +202,13 @@ function initTodayView() {
 
   document.getElementById('btn-habit-app').addEventListener('click', async () => {
     const url = await DB.getSetting('habitAppUrl');
-    if (url) window.open(url, '_blank', 'noopener');
-    else alert('設定画面で習慣アプリのURLを設定してください。');
+    if (!url) { alert('設定画面で習慣アプリのURLを設定してください。'); return; }
+    // iOS PWA standalone では window.open() がブロックされるため location.href を使う
+    if (navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+      location.href = url;
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
   });
 }
 
