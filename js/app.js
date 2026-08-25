@@ -512,13 +512,23 @@ function renderTemplateList() {
 }
 
 function initSettingsView() {
+  const textInput = document.getElementById('template-text-input');
+
+  // Cmd/Ctrl+Enter で追加
+  textInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      document.getElementById('btn-add-template').click();
+    }
+  });
+
   document.getElementById('btn-add-template').addEventListener('click', async () => {
     const label = document.getElementById('template-label-input').value.trim();
-    const text = document.getElementById('template-text-input').value.trim();
+    const text = textInput.value.trim();
     if (!label && !text) return;
     await DB.addTemplate({ label: label || text, text: text || label });
     document.getElementById('template-label-input').value = '';
-    document.getElementById('template-text-input').value = '';
+    textInput.value = '';
     await loadTemplateList();
   });
 
