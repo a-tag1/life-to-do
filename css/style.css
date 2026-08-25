@@ -1,843 +1,378 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 /* ============================================================
-   CSS カスタムプロパティ（テーマカラー）
+   デザイントークン -- モノトーン基調、アクセント1色
    ============================================================ */
 :root {
-  --color-primary: #6c63ff;
-  --color-primary-light: #9d96ff;
-  --color-accent: #ff6584;
-  --color-star: #ffc107;
+  --accent:      #007AFF;
+  --accent-soft: rgba(0,122,255,0.10);
+  --star-color:  #F59E0B;
 
-  --color-bg: #f0f2f5;
-  --color-surface: #ffffff;
-  --color-surface2: #f5f6fa;
-  --color-text: #1a1a2e;
-  --color-text-secondary: #6b7280;
-  --color-border: #e5e7eb;
-  --color-today-border: #6c63ff;
-  --color-today-bg: #f0efff;
+  --bg:      #F2F2F7;
+  --surface: #FFFFFF;
+  --inset:   #F5F5F7;
+  --text:    #1C1C1E;
+  --text-2:  #8E8E93;
+  --text-3:  #C7C7CC;
+  --sep:     #E5E5EA;
+  --sep-2:   #D1D1D6;
+  --sunday:  #FF3B30;
 
-  --color-sunday: #ef4444;
-  --color-saturday: #3b82f6;
+  --header-h: 52px;
+  --nav-h:    56px;
+  --safe-btm: env(safe-area-inset-bottom, 0px);
 
-  --header-height: 56px;
-  --nav-height: 60px;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --r:     12px;
+  --r-sm:  8px;
+  --r-pill: 100px;
 
-  --shadow-sm: 0 1px 4px rgba(0,0,0,0.08);
-  --shadow: 0 2px 10px rgba(0,0,0,0.10);
-  --shadow-lg: 0 4px 20px rgba(0,0,0,0.14);
-  --radius: 14px;
-  --radius-sm: 8px;
+  --ease: 170ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* ダークモード（OS連動） */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #0f0f14;
-    --color-surface: #1c1c28;
-    --color-surface2: #252535;
-    --color-text: #e8e8f0;
-    --color-text-secondary: #8b8ba0;
-    --color-border: #2e2e42;
-    --color-today-bg: #1a1a32;
-    --shadow-sm: 0 1px 4px rgba(0,0,0,0.3);
-    --shadow: 0 2px 10px rgba(0,0,0,0.4);
-    --shadow-lg: 0 4px 20px rgba(0,0,0,0.5);
+    --bg: #000; --surface: #1C1C1E; --inset: #080808;
+    --text: #F2F2F7; --text-2: #8E8E93; --text-3: #3A3A3C;
+    --sep: #2C2C2E; --sep-2: #48484A; --sunday: #FF453A;
   }
 }
-
-/* 手動ダークモード */
 body.force-dark {
-  --color-bg: #0f0f14;
-  --color-surface: #1c1c28;
-  --color-surface2: #252535;
-  --color-text: #e8e8f0;
-  --color-text-secondary: #8b8ba0;
-  --color-border: #2e2e42;
-  --color-today-bg: #1a1a32;
-  --shadow-sm: 0 1px 4px rgba(0,0,0,0.3);
-  --shadow: 0 2px 10px rgba(0,0,0,0.4);
-  --shadow-lg: 0 4px 20px rgba(0,0,0,0.5);
+  --bg: #000; --surface: #1C1C1E; --inset: #080808;
+  --text: #F2F2F7; --text-2: #8E8E93; --text-3: #3A3A3C;
+  --sep: #2C2C2E; --sep-2: #48484A; --sunday: #FF453A;
 }
-
 body.force-light {
-  --color-bg: #f0f2f5;
-  --color-surface: #ffffff;
-  --color-surface2: #f5f6fa;
-  --color-text: #1a1a2e;
-  --color-text-secondary: #6b7280;
-  --color-border: #e5e7eb;
-  --color-today-bg: #f0efff;
-  --shadow-sm: 0 1px 4px rgba(0,0,0,0.08);
-  --shadow: 0 2px 10px rgba(0,0,0,0.10);
-  --shadow-lg: 0 4px 20px rgba(0,0,0,0.14);
+  --bg: #F2F2F7; --surface: #FFF; --inset: #F5F5F7;
+  --text: #1C1C1E; --text-2: #8E8E93; --text-3: #C7C7CC;
+  --sep: #E5E5EA; --sep-2: #D1D1D6; --sunday: #FF3B30;
 }
 
-/* ============================================================
-   リセット・ベース
-   ============================================================ */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
-
+/* ============================================================ Reset */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; overflow:hidden; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP',
-    'Yu Gothic', sans-serif;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  font-family: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg); color:var(--text);
+  font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
 }
+button { cursor:pointer; font-family:inherit; }
+input,textarea,select { font-family:inherit; color:var(--text); }
 
-button {
-  cursor: pointer;
-  font-family: inherit;
-}
+/* ============================================================ Layout */
+#app { display:flex; flex-direction:column; height:100%; max-width:640px; margin:0 auto; background:var(--bg); }
 
-input, textarea, select {
-  font-family: inherit;
-}
-
-/* ============================================================
-   アプリレイアウト
-   ============================================================ */
-#app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-width: 640px;
-  margin: 0 auto;
-  position: relative;
-  background: var(--color-bg);
-}
-
-/* ヘッダー */
+/* Header -- 白背景・シンプル */
 #app-header {
-  display: flex;
-  align-items: center;
-  height: var(--header-height);
-  padding: 0 4px;
-  background: var(--color-primary);
-  color: #fff;
-  position: relative;
-  z-index: 100;
-  box-shadow: var(--shadow);
-  flex-shrink: 0;
+  display:flex; align-items:center; height:var(--header-h);
+  padding:0 4px; background:var(--surface);
+  border-bottom:1px solid var(--sep); flex-shrink:0; position:relative; z-index:10;
 }
-
 #header-title {
-  flex: 1;
-  text-align: center;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 0 4px;
+  flex:1; text-align:center; font-size:16px; font-weight:700;
+  letter-spacing:-0.02em; color:var(--text); padding:0 4px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-
 .nav-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 30px;
-  line-height: 1;
-  min-width: 48px;
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  transition: background 0.15s;
+  background:none; border:none; color:var(--accent);
+  font-size:26px; font-weight:300; line-height:1;
+  min-width:48px; min-height:48px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:var(--r-sm); transition:opacity var(--ease);
 }
+.nav-btn:active { opacity:0.4; }
 
-.nav-btn:active { background: rgba(255,255,255,0.2); }
+/* Main */
+#main-content { flex:1; overflow:hidden; position:relative; }
 
-/* メインコンテンツ */
-#main-content {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-}
-
-/* ビュー */
+/* Views -- opacityフェード */
 .view {
-  position: absolute;
-  inset: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  display: none;
+  position:absolute; inset:0; overflow-y:auto;
+  -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain;
+  opacity:0; pointer-events:none; transition:opacity var(--ease);
 }
+.view.active { opacity:1; pointer-events:auto; }
+.view-content { padding:16px 16px 36px; }
 
-.view.active { display: block; }
-
-.view-content {
-  padding: 12px 12px 24px;
-}
-
-/* ボトムナビ */
+/* Bottom Nav */
 #bottom-nav {
-  display: flex;
-  height: calc(var(--nav-height) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.07);
-  flex-shrink: 0;
+  display:flex; height:calc(var(--nav-h) + var(--safe-btm));
+  padding-bottom:var(--safe-btm); background:var(--surface);
+  border-top:1px solid var(--sep); flex-shrink:0;
 }
-
 .nav-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  padding: 6px 2px;
-  transition: color 0.2s;
-  font-size: 10px;
-  font-weight: 500;
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; background:none; border:none; color:var(--text-3);
+  font-size:10px; font-weight:500; letter-spacing:0.02em;
+  padding:4px 2px; transition:color var(--ease);
 }
-
-.nav-item.active { color: var(--color-primary); }
-
-.nav-icon { font-size: 20px; line-height: 1; }
+.nav-item.active { color:var(--accent); }
+.nav-icon { display:block; width:22px; height:22px; flex-shrink:0; }
 
 /* FAB */
 .fab {
-  position: fixed;
-  bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
-  right: 16px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  color: #fff;
-  border: none;
-  font-size: 11px;
-  font-weight: 700;
-  box-shadow: var(--shadow-lg);
-  z-index: 200;
-  transition: transform 0.2s, opacity 0.2s;
-  line-height: 1.3;
-  text-align: center;
+  position:fixed; bottom:calc(var(--nav-h) + var(--safe-btm) + 20px); right:20px;
+  width:52px; height:52px; border-radius:50%; background:var(--accent); color:#fff;
+  border:none; font-size:10px; font-weight:700; line-height:1.3; text-align:center;
+  box-shadow:0 4px 18px rgba(0,122,255,0.45); z-index:200; transition:transform var(--ease);
 }
+.fab:active { transform:scale(0.90); }
+.fab.hidden { display:none; }
 
-.fab:active { transform: scale(0.93); }
-.fab.hidden { display: none; }
-
-/* ============================================================
-   今日ビュー
-   ============================================================ */
+/* ============================================================ Today View */
 .schedule-section {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  margin-bottom: 12px;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  background:var(--surface); border-radius:var(--r);
+  margin-bottom:12px; overflow:hidden;
+  border:1px solid var(--sep); transition:border-color var(--ease);
 }
+.schedule-section:focus-within { border-color:var(--accent); }
 
 .section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--color-surface2);
-  border-bottom: 1px solid var(--color-border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 14px; border-bottom:1px solid var(--sep);
 }
-
+/* 極小・大文字・グレー -- 存在感を消したラベル */
 .section-label {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-text);
+  font-size:10px; font-weight:700; letter-spacing:0.09em;
+  text-transform:uppercase; color:var(--text-2);
 }
+.input-actions { display:flex; gap:6px; align-items:center; }
 
-.input-actions {
-  display: flex;
-  gap: 6px;
-}
-
+/* 「今」ボタン -- アクセント色を使う唯一のUI */
 .btn-now {
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  min-height: 36px;
-  transition: opacity 0.15s;
+  background:var(--accent); color:#fff; border:none;
+  border-radius:var(--r-pill); padding:5px 15px;
+  font-size:12px; font-weight:700; min-height:30px; transition:opacity var(--ease);
 }
+.btn-now:active { opacity:0.65; }
 
-.btn-now:active { opacity: 0.75; }
-
+/* テンプレートボタン -- 存在感を消す */
 .btn-template {
-  background: transparent;
-  color: var(--color-primary);
-  border: 1.5px solid var(--color-primary);
-  border-radius: var(--radius-sm);
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  min-height: 36px;
-  transition: all 0.15s;
+  background:none; color:var(--text-2); border:1px solid var(--sep-2);
+  border-radius:var(--r-pill); padding:5px 12px;
+  font-size:11px; font-weight:500; min-height:30px;
+  transition:background var(--ease),color var(--ease);
 }
+.btn-template:active { background:var(--inset); color:var(--text); }
 
-.btn-template:active {
-  background: var(--color-primary);
-  color: #fff;
-}
-
+/* テキストエリア -- 微細な内側シャドウで「書く場所」を演出 */
 .schedule-textarea {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  outline: none;
-  resize: none;
-  font-size: 15px;
-  line-height: 1.7;
-  background: var(--color-surface);
-  color: var(--color-text);
-  min-height: 150px;
-  display: block;
+  width:100%; padding:14px 16px; border:none; outline:none; resize:none;
+  font-size:15px; font-weight:400; line-height:1.85;
+  background:var(--inset); color:var(--text); min-height:165px; display:block;
+  box-shadow:inset 0 1px 4px rgba(0,0,0,0.05);
 }
-
-.habit-link-section {
-  margin-top: 4px;
+@media (prefers-color-scheme: dark) {
+  .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.35); }
 }
+body.force-dark .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.35); }
+body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05); }
 
+.habit-link-section { margin-top:4px; }
 .btn-habit {
-  width: 100%;
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-  transition: background 0.15s;
+  width:100%; background:var(--surface); color:var(--text-2);
+  border:1px solid var(--sep); border-radius:var(--r); padding:13px;
+  font-size:13px; font-weight:500; transition:background var(--ease),color var(--ease);
 }
+.btn-habit:active { background:var(--inset); color:var(--text); }
 
-.btn-habit:active { background: var(--color-surface2); }
-
-/* ============================================================
-   今月ビュー
-   ============================================================ */
+/* ============================================================ Monthly View */
 .month-day {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  margin-bottom: 10px;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  border: 1.5px solid transparent;
+  background:var(--surface); border-radius:var(--r);
+  margin-bottom:8px; overflow:hidden;
+  border:1px solid var(--sep); transition:border-color var(--ease);
 }
-
-.month-day.today {
-  border-color: var(--color-today-border);
-  background: var(--color-today-bg);
-}
+.month-day.today { border-color:var(--accent); }
 
 .month-day-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--color-surface2);
-  border-bottom: 1px solid var(--color-border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 14px; border-bottom:1px solid var(--sep);
 }
+.month-day-num { font-size:14px; font-weight:600; letter-spacing:-0.01em; color:var(--text); }
+.month-day-num.sun { color:var(--sunday); }
+.month-day-num.sat { color:var(--accent); }
 
-.month-day.today .month-day-header {
-  background: rgba(108, 99, 255, 0.1);
-}
-
-.month-day-num {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.month-day-num.sun { color: var(--color-sunday); }
-.month-day-num.sat { color: var(--color-saturday); }
-
+/* 非アクティブ★はほぼ見えない -> アクティブでアンバー */
 .star-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  line-height: 1;
-  color: var(--color-border);
-  padding: 4px 6px;
-  transition: color 0.2s, transform 0.15s;
+  background:none; border:none; font-size:20px; line-height:1;
+  color:var(--sep-2); padding:4px 6px; transition:color var(--ease),transform var(--ease);
 }
-
-.star-btn.active { color: var(--color-star); }
-.star-btn:active { transform: scale(1.25); }
+.star-btn.active { color:var(--star-color); }
+.star-btn:active { transform:scale(1.3); }
 
 .month-note {
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  outline: none;
-  resize: none;
-  font-size: 14px;
-  line-height: 1.7;
-  background: transparent;
-  color: var(--color-text);
-  min-height: 52px;
-  display: block;
-  overflow: hidden;
+  width:100%; padding:10px 14px; border:none; outline:none; resize:none;
+  font-size:14px; font-weight:400; line-height:1.75;
+  background:var(--inset); color:var(--text); min-height:50px; display:block; overflow:hidden;
 }
 
-/* ============================================================
-   年間ビュー
-   ============================================================ */
+/* ============================================================ Yearly View */
 .year-month {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  margin-bottom: 12px;
-  padding: 14px;
-  box-shadow: var(--shadow-sm);
+  background:var(--surface); border-radius:var(--r);
+  margin-bottom:10px; padding:14px; border:1px solid var(--sep);
 }
-
 .year-month-title {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--color-primary);
-  margin-bottom: 10px;
+  font-size:14px; font-weight:700; letter-spacing:-0.01em;
+  color:var(--accent); margin-bottom:10px;
 }
-
 .year-note {
-  width: 100%;
-  padding: 9px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  outline: none;
-  resize: none;
-  font-size: 14px;
-  line-height: 1.7;
-  background: var(--color-surface2);
-  color: var(--color-text);
-  min-height: 54px;
-  display: block;
-  overflow: hidden;
+  width:100%; padding:9px 11px; border:1px solid var(--sep);
+  border-radius:var(--r-sm); outline:none; resize:none;
+  font-size:13px; font-weight:400; line-height:1.7;
+  background:var(--inset); color:var(--text); min-height:50px; display:block; overflow:hidden;
+  transition:border-color var(--ease);
 }
+.year-note:focus { border-color:var(--accent); }
 
-.starred-days {
-  margin-top: 10px;
-  border-top: 1px solid var(--color-border);
-  padding-top: 8px;
-}
-
+.starred-days { margin-top:10px; border-top:1px solid var(--sep); padding-top:8px; }
 .starred-days-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-star);
-  margin-bottom: 6px;
+  font-size:10px; font-weight:700; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--star-color); margin-bottom:6px;
 }
-
-.starred-day {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 5px;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.starred-day-date {
-  color: var(--color-text-secondary);
-  font-weight: 700;
-  white-space: nowrap;
-  min-width: 30px;
-}
-
+.starred-day { display:flex; gap:8px; margin-bottom:4px; font-size:12px; line-height:1.5; }
+.starred-day-date { color:var(--text-2); font-weight:600; white-space:nowrap; min-width:28px; }
 .starred-day-text {
-  color: var(--color-text);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  color:var(--text); overflow:hidden;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
 }
 
-/* ============================================================
-   ビジョンビュー
-   ============================================================ */
-.vision-section,
-.tasks-section {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow-sm);
+/* ============================================================ Vision View */
+.vision-section,.tasks-section {
+  background:var(--surface); border-radius:var(--r);
+  padding:14px; margin-bottom:12px; border:1px solid var(--sep);
 }
-
 .section-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 10px;
+  font-size:10px; font-weight:700; letter-spacing:0.09em;
+  text-transform:uppercase; color:var(--text-2); margin-bottom:10px;
 }
-
 .vision-textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  outline: none;
-  resize: none;
-  font-size: 15px;
-  line-height: 1.7;
-  background: var(--color-surface2);
-  color: var(--color-text);
-  min-height: 130px;
-  display: block;
+  width:100%; padding:11px; border:1px solid var(--sep); border-radius:var(--r-sm);
+  outline:none; resize:none; font-size:15px; font-weight:400; line-height:1.8;
+  background:var(--inset); color:var(--text); min-height:130px; display:block;
+  box-shadow:inset 0 1px 4px rgba(0,0,0,0.05); transition:border-color var(--ease);
 }
+.vision-textarea:focus { border-color:var(--accent); }
 
-.tasks-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
+.tasks-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
 .btn-add {
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 7px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  transition: opacity 0.15s;
+  background:var(--accent-soft); color:var(--accent); border:none;
+  border-radius:var(--r-pill); padding:6px 14px;
+  font-size:12px; font-weight:700; transition:opacity var(--ease);
 }
+.btn-add:active { opacity:0.6; }
 
-.btn-add:active { opacity: 0.75; }
-
-.task-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.task-item:last-child { border-bottom: none; }
-
-.task-checkbox {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  margin-top: 3px;
-  accent-color: var(--color-primary);
-  cursor: pointer;
-}
-
+.task-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--sep); }
+.task-item:last-child { border-bottom:none; }
+.task-checkbox { width:18px; height:18px; flex-shrink:0; margin-top:4px; accent-color:var(--accent); cursor:pointer; }
 .task-text {
-  flex: 1;
-  font-size: 14px;
-  color: var(--color-text);
-  border: none;
-  outline: none;
-  background: transparent;
-  resize: none;
-  line-height: 1.6;
-  padding: 2px 0;
-  min-height: 24px;
-  display: block;
-  overflow: hidden;
+  flex:1; font-size:14px; font-weight:400; color:var(--text); border:none; outline:none;
+  background:transparent; resize:none; line-height:1.6; padding:2px 0;
+  min-height:24px; display:block; overflow:hidden; transition:color var(--ease);
 }
-
-.task-text.completed {
-  text-decoration: line-through;
-  color: var(--color-text-secondary);
-}
-
-.task-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
+.task-text.completed { text-decoration:line-through; color:var(--text-3); }
+.task-actions { display:flex; gap:4px; flex-shrink:0; margin-top:2px; }
 .btn-task-transfer {
-  background: var(--color-surface2);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-  white-space: nowrap;
-  transition: all 0.15s;
+  background:none; border:1px solid var(--sep-2); border-radius:var(--r-pill);
+  padding:3px 10px; font-size:11px; font-weight:600; color:var(--accent);
+  white-space:nowrap; transition:all var(--ease);
 }
-
-.btn-task-transfer:active {
-  background: var(--color-primary);
-  color: #fff;
-}
-
+.btn-task-transfer:active { background:var(--accent); color:#fff; border-color:var(--accent); }
 .btn-task-delete {
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  font-size: 20px;
-  line-height: 1;
-  padding: 2px 6px;
-  transition: color 0.15s;
+  background:none; border:none; color:var(--text-3);
+  font-size:20px; line-height:1; padding:2px 4px; transition:color var(--ease);
 }
+.btn-task-delete:active { color:#FF3B30; }
 
-.btn-task-delete:active { color: var(--color-accent); }
-
-/* ============================================================
-   設定ビュー
-   ============================================================ */
+/* ============================================================ Settings */
 .settings-section {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow-sm);
+  background:var(--surface); border-radius:var(--r);
+  padding:14px; margin-bottom:12px; border:1px solid var(--sep);
 }
-
-.settings-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
+.settings-row { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
 .settings-row label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size:10px; font-weight:700; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--text-2);
 }
-
-.settings-row input,
-.settings-row select {
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  background: var(--color-surface2);
-  color: var(--color-text);
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
+.settings-row input,.settings-row select {
+  padding:10px 12px; border:1px solid var(--sep); border-radius:var(--r-sm);
+  font-size:14px; background:var(--inset); color:var(--text); outline:none;
+  -webkit-appearance:none; appearance:none; transition:border-color var(--ease);
 }
+.settings-row input:focus,.settings-row select:focus { border-color:var(--accent); }
 
 .template-add-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--color-border);
+  display:flex; flex-direction:column; gap:8px;
+  margin-top:12px; padding-top:12px; border-top:1px solid var(--sep);
 }
-
 .template-add-form input {
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  background: var(--color-surface2);
-  color: var(--color-text);
-  outline: none;
+  padding:10px 12px; border:1px solid var(--sep); border-radius:var(--r-sm);
+  font-size:14px; background:var(--inset); color:var(--text); outline:none;
+  transition:border-color var(--ease);
 }
+.template-add-form input:focus { border-color:var(--accent); }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  width: 100%;
-  transition: opacity 0.15s;
+  background:var(--accent); color:#fff; border:none; border-radius:var(--r-sm);
+  padding:12px; font-size:14px; font-weight:700; width:100%; transition:opacity var(--ease);
 }
-
-.btn-primary:active { opacity: 0.75; }
+.btn-primary:active { opacity:0.7; }
 
 .btn-secondary {
-  display: block;
-  width: 100%;
-  background: var(--color-surface2);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  text-align: center;
-  transition: background 0.15s;
+  display:block; width:100%; background:var(--inset); color:var(--text);
+  border:1px solid var(--sep); border-radius:var(--r-sm); padding:12px;
+  font-size:14px; font-weight:500; margin-bottom:8px; text-align:center; transition:background var(--ease);
 }
-
-.btn-secondary:last-child { margin-bottom: 0; }
-.btn-secondary:active { background: var(--color-border); }
+.btn-secondary:last-child { margin-bottom:0; }
+.btn-secondary:active { background:var(--sep); }
 
 .template-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 0; border-bottom:1px solid var(--sep);
 }
-
-.template-item:last-child { border-bottom: none; }
-
-.template-item-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.template-item-text {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-top: 2px;
-}
-
+.template-item:last-child { border-bottom:none; }
+.template-item-label { font-size:14px; font-weight:600; color:var(--text); }
+.template-item-text { font-size:12px; color:var(--text-2); margin-top:2px; }
 .btn-delete {
-  background: none;
-  border: none;
-  color: var(--color-accent);
-  font-size: 22px;
-  line-height: 1;
-  padding: 4px 8px;
-  flex-shrink: 0;
+  background:none; border:none; color:var(--text-3);
+  font-size:22px; line-height:1; padding:4px 6px; flex-shrink:0; transition:color var(--ease);
 }
+.btn-delete:active { color:#FF3B30; }
 
 .storage-status {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-top: 10px;
-  padding: 10px;
-  background: var(--color-surface2);
-  border-radius: var(--radius-sm);
-  line-height: 1.5;
+  font-size:12px; color:var(--text-2); margin-top:10px;
+  padding:10px 12px; background:var(--inset); border-radius:var(--r-sm); line-height:1.6;
 }
 
-/* ============================================================
-   テンプレートモーダル
-   ============================================================ */
-.modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: flex-end;
-}
-
-.modal.hidden { display: none; }
-
-.modal-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-}
-
+/* ============================================================ Template Modal (Bottom Sheet) */
+.modal { position:fixed; inset:0; z-index:1000; display:flex; align-items:flex-end; }
+.modal.hidden { display:none; }
+.modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.45); }
 .modal-content {
-  position: relative;
-  width: 100%;
-  max-width: 640px;
-  margin: 0 auto;
-  background: var(--color-surface);
-  border-radius: var(--radius) var(--radius) 0 0;
-  max-height: 65vh;
-  overflow-y: auto;
-  box-shadow: var(--shadow-lg);
-  padding-bottom: var(--safe-bottom);
+  position:relative; width:100%; max-width:640px; margin:0 auto;
+  background:var(--surface); border-radius:var(--r) var(--r) 0 0;
+  max-height:65vh; overflow-y:auto; padding-bottom:var(--safe-btm);
 }
-
 .modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  background: var(--color-surface);
-  z-index: 1;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid var(--sep);
+  position:sticky; top:0; background:var(--surface);
 }
-
-.modal-header h3 {
-  font-size: 16px;
-  font-weight: 700;
-}
-
+.modal-header h3 { font-size:15px; font-weight:700; letter-spacing:-0.01em; }
 .btn-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  line-height: 1;
-  color: var(--color-text-secondary);
-  padding: 4px 8px;
+  background:none; border:none; font-size:22px; line-height:1;
+  color:var(--text-2); padding:4px 8px; transition:color var(--ease);
 }
-
-.modal-list {
-  padding: 6px 8px;
-}
-
+.btn-close:active { color:var(--text); }
+.modal-list { padding:4px 8px 8px; }
 .modal-template-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 14px 10px;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 15px;
-  color: var(--color-text);
-  cursor: pointer;
-  transition: background 0.15s;
-  border-radius: var(--radius-sm);
+  display:block; width:100%; text-align:left; padding:13px 10px;
+  background:none; border:none; border-bottom:1px solid var(--sep);
+  color:var(--text); cursor:pointer; border-radius:var(--r-sm); transition:background var(--ease);
 }
+.modal-template-item:last-child { border-bottom:none; }
+.modal-template-item:active { background:var(--inset); }
+.modal-template-label { font-size:15px; font-weight:600; display:block; }
+.modal-template-sub { font-size:12px; color:var(--text-2); margin-top:2px; display:block; }
 
-.modal-template-item:last-child { border-bottom: none; }
-.modal-template-item:active { background: var(--color-surface2); }
-
-.modal-template-label {
-  font-weight: 600;
-  display: block;
-}
-
-.modal-template-sub {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-top: 2px;
-  display: block;
-}
-
-/* ============================================================
-   ユーティリティ
-   ============================================================ */
-.empty-state {
-  text-align: center;
-  padding: 36px 16px;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.empty-state-icon {
-  font-size: 40px;
-  display: block;
-  margin-bottom: 10px;
-}
+/* ============================================================ Utility */
+.empty-state { text-align:center; padding:40px 16px; color:var(--text-2); font-size:14px; line-height:1.7; }
+.empty-state-icon { font-size:36px; display:block; margin-bottom:8px; }

@@ -32,7 +32,7 @@
 
         <div class="schedule-section">
           <div class="section-header">
-            <span class="section-label">📋 予定</span>
+            <span class="section-label">予定</span>
             <div class="input-actions">
               <button class="btn-now" data-target="plan-textarea">今</button>
               <button class="btn-template" data-target="plan-textarea">テンプレ</button>
@@ -47,7 +47,7 @@
 
         <div class="schedule-section">
           <div class="section-header">
-            <span class="section-label">✅ 実績</span>
+            <span class="section-label">実績</span>
             <div class="input-actions">
               <button class="btn-now" data-target="actual-textarea">今</button>
               <button class="btn-template" data-target="actual-textarea">テンプレ</button>
@@ -61,7 +61,7 @@
         </div>
 
         <div class="habit-link-section">
-          <button id="btn-habit-app" class="btn-habit">🔗 習慣アプリを開く</button>
+          <button id="btn-habit-app" class="btn-habit">習慣アプリを開く</button>
         </div>
 
       </div>
@@ -82,7 +82,7 @@
       <div class="view-content">
 
         <div class="vision-section">
-          <div class="section-title">🌟 ビジョン・なりたい姿</div>
+          <div class="section-title">ビジョン・なりたい姿</div>
           <textarea
             id="vision-textarea"
             class="vision-textarea"
@@ -92,7 +92,7 @@
 
         <div class="tasks-section">
           <div class="tasks-header">
-            <div class="section-title" style="margin-bottom:0">🎯 具体的な行動・タスク</div>
+            <div class="section-title" style="margin-bottom:0">タスク</div>
             <button id="btn-add-task" class="btn-add">＋ 追加</button>
           </div>
           <div id="task-list"></div>
@@ -106,7 +106,7 @@
       <div class="view-content">
 
         <div class="settings-section">
-          <div class="section-title">📝 テンプレート管理</div>
+          <div class="section-title">テンプレート</div>
           <div id="template-list"></div>
           <div class="template-add-form">
             <input id="template-label-input" type="text" placeholder="表示名（例: 読書）">
@@ -116,7 +116,7 @@
         </div>
 
         <div class="settings-section">
-          <div class="section-title">🔗 習慣アプリ連携</div>
+          <div class="section-title">習慣アプリ連携</div>
           <div class="settings-row">
             <label for="habit-url-input">習慣アプリのURL</label>
             <input id="habit-url-input" type="url" placeholder="https://...">
@@ -125,7 +125,7 @@
         </div>
 
         <div class="settings-section">
-          <div class="section-title">🎨 表示設定</div>
+          <div class="section-title">表示設定</div>
           <div class="settings-row">
             <label for="dark-mode-select">ダークモード</label>
             <select id="dark-mode-select">
@@ -137,11 +137,11 @@
         </div>
 
         <div class="settings-section">
-          <div class="section-title">💾 バックアップ・エクスポート</div>
-          <button id="btn-export-txt" class="btn-secondary">📄 テキスト出力（.txt）</button>
-          <button id="btn-export-csv" class="btn-secondary">📊 CSV出力（.csv）</button>
-          <button id="btn-share" class="btn-secondary">📤 共有（Web Share）</button>
-          <button id="btn-google-drive" class="btn-secondary">☁️ Google Drive連携</button>
+          <div class="section-title">バックアップ・エクスポート</div>
+          <button id="btn-export-txt" class="btn-secondary">テキスト出力（.txt）</button>
+          <button id="btn-export-csv" class="btn-secondary">CSV出力（.csv）</button>
+          <button id="btn-share" class="btn-secondary">共有（Web Share）</button>
+          <button id="btn-google-drive" class="btn-secondary">Google Drive連携</button>
           <div id="storage-status" class="storage-status"></div>
         </div>
 
@@ -153,23 +153,45 @@
   <!-- ========== ボトムナビ ========== -->
   <nav id="bottom-nav" aria-label="メインナビゲーション">
     <button class="nav-item active" data-view="today">
-      <span class="nav-icon">📅</span>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
       <span>今日</span>
     </button>
     <button class="nav-item" data-view="monthly">
-      <span class="nav-icon">📆</span>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        <line x1="8" y1="15" x2="16" y2="15"/><line x1="8" y1="19" x2="13" y2="19"/>
+      </svg>
       <span>今月</span>
     </button>
     <button class="nav-item" data-view="yearly">
-      <span class="nav-icon">🗓</span>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+        <line x1="8" y1="18" x2="21" y2="18"/>
+        <circle cx="3" cy="6" r="0.5" fill="currentColor" stroke="currentColor"/>
+        <circle cx="3" cy="12" r="0.5" fill="currentColor" stroke="currentColor"/>
+        <circle cx="3" cy="18" r="0.5" fill="currentColor" stroke="currentColor"/>
+      </svg>
       <span>年間</span>
     </button>
     <button class="nav-item" data-view="vision">
-      <span class="nav-icon">🌟</span>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+      </svg>
       <span>ビジョン</span>
     </button>
     <button class="nav-item" data-view="settings">
-      <span class="nav-icon">⚙️</span>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+        <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+        <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/>
+        <line x1="17" y1="16" x2="23" y2="16"/>
+      </svg>
       <span>設定</span>
     </button>
   </nav>
