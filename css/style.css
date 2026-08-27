@@ -61,7 +61,14 @@ button { cursor:pointer; font-family:inherit; }
 input,textarea,select { font-family:inherit; color:var(--text); }
 
 /* ============================================================ Layout */
-#app { position:fixed; inset:0; display:flex; flex-direction:column; max-width:640px; margin:0 auto; background:var(--bg); }
+#app {
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100dvh;
+  display:flex; flex-direction:column;
+  max-width:640px; margin:0 auto;
+  background:var(--bg);
+}
 
 /* Header -- 白背景・シンプル */
 #app-header {
