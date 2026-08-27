@@ -93,13 +93,15 @@ input,textarea,select { font-family:inherit; color:var(--text); }
   opacity:0; pointer-events:none; transition:opacity var(--ease);
 }
 .view.active { opacity:1; pointer-events:auto; }
-.view-content { padding:16px 16px 36px; }
+.view-content { padding:16px 16px calc(var(--nav-h) + var(--safe-btm) + 8px); }
 
-/* Bottom Nav */
+/* Bottom Nav -- position:fixed で常にビューポート最下部に固定 */
 #bottom-nav {
+  position:fixed; bottom:0; left:0; right:0;
+  max-width:640px; margin:0 auto;
   display:flex; height:calc(var(--nav-h) + var(--safe-btm));
   padding-bottom:var(--safe-btm); background:var(--surface);
-  border-top:1px solid var(--sep); flex-shrink:0;
+  border-top:1px solid var(--sep); z-index:10;
 }
 .nav-item {
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
