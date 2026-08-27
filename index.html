@@ -80,17 +80,16 @@
 
     <!-- [4] ビジョンビュー -->
     <section id="view-vision" class="view">
+      <textarea
+        id="vision-textarea"
+        class="vision-textarea"
+        placeholder="やりたいこと、なりたい姿を自由に書いてください&#10;&#10;例）毎朝30分読書する習慣を身につける&#10;　　マラソン完走する"
+      ></textarea>
+    </section>
+
+    <!-- [5] タスクビュー -->
+    <section id="view-tasks" class="view">
       <div class="view-content">
-
-        <div class="vision-section">
-          <div class="section-title">ビジョン・なりたい姿</div>
-          <textarea
-            id="vision-textarea"
-            class="vision-textarea"
-            placeholder="やりたいこと、なりたい姿を自由に書いてください&#10;&#10;例）毎朝30分読書する習慣を身につける&#10;　　マラソン完走する"
-          ></textarea>
-        </div>
-
         <div class="tasks-section">
           <div class="tasks-header">
             <div class="section-title" style="margin-bottom:0">タスク</div>
@@ -98,11 +97,10 @@
           </div>
           <div id="task-list"></div>
         </div>
-
       </div>
     </section>
 
-    <!-- [5] 設定ビュー -->
+    <!-- [6] 設定ビュー -->
     <section id="view-settings" class="view">
       <div class="view-content">
 
@@ -148,7 +146,7 @@
 
         <div class="app-version">
           <span>LifeToDo</span>
-          <span><span id="version-number">v1.0.0</span> &nbsp;·&nbsp; <span id="version-date">2026/8/27</span></span>
+          <span><span id="version-number">v1.0.1</span> &nbsp;·&nbsp; <span id="version-date">2026/8/27</span></span>
         </div>
 
       </div>
@@ -189,6 +187,15 @@
         <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
       </svg>
       <span>ビジョン</span>
+    </button>
+    <button class="nav-item" data-view="tasks">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/>
+        <line x1="9" y1="18" x2="20" y2="18"/>
+        <polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/>
+        <polyline points="3 18 4 19 6 17"/>
+      </svg>
+      <span>タスク</span>
     </button>
     <button class="nav-item" data-view="settings">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">

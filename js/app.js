@@ -86,7 +86,7 @@ function navigate(id) {
   document.querySelector(`.nav-item[data-view="${id}"]`).classList.add('active');
   state.view = id;
   ({ today: loadTodayView, monthly: loadMonthlyView, yearly: loadYearlyView,
-     vision: loadVisionView, settings: loadSettingsView })[id]();
+     vision: loadVisionView, tasks: loadTasksView, settings: loadSettingsView })[id]();
   updateHeader();
   updateFAB();
 }
@@ -97,7 +97,7 @@ function updateHeader() {
   const titleEl = document.getElementById('header-title');
   const prev = document.getElementById('btn-prev');
   const next = document.getElementById('btn-next');
-  const showNav = !['vision', 'settings'].includes(state.view);
+  const showNav = !['vision', 'tasks', 'settings'].includes(state.view);
   prev.style.visibility = next.style.visibility = showNav ? 'visible' : 'hidden';
 
   const d = state.todayDate;
@@ -106,6 +106,7 @@ function updateHeader() {
     monthly:  `${state.monthDate.getFullYear()}年${state.monthDate.getMonth() + 1}月`,
     yearly:   `${state.yearDate.getFullYear()}年`,
     vision:   'ビジョン・目標',
+    tasks:    'タスク',
     settings: '設定・バックアップ'
   };
   titleEl.textContent = titles[state.view] || '';
@@ -118,7 +119,7 @@ function updateFAB() {
 }
 
 function goForward() {
-  if (['vision', 'settings'].includes(state.view)) return;
+  if (['vision', 'tasks', 'settings'].includes(state.view)) return;
   if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() + 1); state.todayDate = d; loadTodayView(); }
   else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() + 1); state.monthDate = d; loadMonthlyView(); }
   else if (state.view === 'yearly') { state.yearDate.setFullYear(state.yearDate.getFullYear() + 1); loadYearlyView(); }
@@ -126,7 +127,7 @@ function goForward() {
 }
 
 function goBack() {
-  if (['vision', 'settings'].includes(state.view)) return;
+  if (['vision', 'tasks', 'settings'].includes(state.view)) return;
   if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() - 1); state.todayDate = d; loadTodayView(); }
   else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() - 1); state.monthDate = d; loadMonthlyView(); }
   else if (state.view === 'yearly') { state.yearDate.setFullYear(state.yearDate.getFullYear() - 1); loadYearlyView(); }
@@ -377,6 +378,11 @@ let visionData = null;
 async function loadVisionView() {
   visionData = await DB.getVision();
   document.getElementById('vision-textarea').value = visionData.text || '';
+  updateHeader();
+}
+
+async function loadTasksView() {
+  if (!visionData) visionData = await DB.getVision();
   renderTaskList();
   updateHeader();
 }
@@ -461,7 +467,9 @@ function initVisionView() {
     DB.saveVision(visionData);
   }, 500);
   visionTA.addEventListener('input', e => _saveVision(e.target.value));
+}
 
+function initTasksView() {
   document.getElementById('btn-add-task').addEventListener('click', async () => {
     if (!visionData) visionData = await DB.getVision();
     visionData.tasks.push({ id: Date.now(), text: '', completed: false });
@@ -707,6 +715,7 @@ async function init() {
   // ビュー初期化（イベントリスナー登録）
   initTodayView();
   initVisionView();
+  initTasksView();
   initSettingsView();
 
   // ボトムナビ
