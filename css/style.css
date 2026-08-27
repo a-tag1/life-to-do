@@ -49,7 +49,9 @@ body.force-light {
 
 /* ============================================================ Reset */
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-html,body { height:100%; overflow:hidden; }
+/* iOS Safari でゴムバウンス時に html 下地が見えないよう背景を合わせる */
+html { height:100%; overflow:hidden; background:var(--bg); overscroll-behavior:none; }
+body { height:100%; overflow:hidden; overscroll-behavior:none; }
 body {
   font-family: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:var(--bg); color:var(--text);
