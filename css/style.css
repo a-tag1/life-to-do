@@ -63,8 +63,8 @@ input,textarea,select { font-family:inherit; color:var(--text); }
 
 /* Header -- 白背景・シンプル */
 #app-header {
-  display:flex; align-items:center; height:var(--header-h);
-  padding:0 4px; background:var(--surface);
+  display:flex; align-items:center; height:calc(var(--header-h) + env(safe-area-inset-top, 0px));
+  padding:env(safe-area-inset-top, 0px) 4px 0; background:var(--surface);
   border-bottom:1px solid var(--sep); flex-shrink:0; position:relative; z-index:10;
 }
 #header-title {
