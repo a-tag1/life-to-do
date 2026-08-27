@@ -49,7 +49,7 @@ body.force-light {
 
 /* ============================================================ Reset */
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-html,body { height:100dvh; overflow:hidden; }
+html,body { height:100%; overflow:hidden; }
 body {
   font-family: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:var(--bg); color:var(--text);
@@ -59,7 +59,7 @@ button { cursor:pointer; font-family:inherit; }
 input,textarea,select { font-family:inherit; color:var(--text); }
 
 /* ============================================================ Layout */
-#app { display:flex; flex-direction:column; height:100dvh; max-width:640px; margin:0 auto; background:var(--bg); }
+#app { display:flex; flex-direction:column; height:var(--app-height, 100dvh); max-width:640px; margin:0 auto; background:var(--bg); }
 
 /* Header -- 白背景・シンプル */
 #app-header {

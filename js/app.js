@@ -740,6 +740,14 @@ async function init() {
   // スワイプ
   initSwipe();
 
+  // iOS Safari ビューポート高さをCSS変数に反映
+  function updateAppHeight() {
+    const h = (window.visualViewport?.height ?? window.innerHeight);
+    document.documentElement.style.setProperty('--app-height', h + 'px');
+  }
+  updateAppHeight();
+  (window.visualViewport ?? window).addEventListener('resize', updateAppHeight);
+
   // Service Worker 登録
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
