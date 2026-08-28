@@ -383,6 +383,16 @@ async function loadYearlyView() {
     ta.addEventListener('input', () => { autoResize(ta); _saveMonthNote(ta.dataset.key, ta.value); });
   });
 
+  // 表示年が当年なら当月へスクロール
+  const todayYear = new Date().getFullYear();
+  if (year === todayYear) {
+    const currentMonth = new Date().getMonth(); // 0-based
+    const monthEls = container.querySelectorAll('.year-month');
+    if (monthEls[currentMonth]) {
+      setTimeout(() => monthEls[currentMonth].scrollIntoView({ block: 'start', behavior: 'smooth' }), 80);
+    }
+  }
+
   updateHeader();
 }
 
