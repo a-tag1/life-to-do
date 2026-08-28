@@ -4,7 +4,7 @@
    IndexedDB ラッパー
    ============================================================ */
 const DB_NAME = 'life-todo-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let _db = null;
 
@@ -26,6 +26,16 @@ function openDB() {
         d.createObjectStore('templates', { keyPath: 'id', autoIncrement: true });
       if (!d.objectStoreNames.contains('settings'))
         d.createObjectStore('settings', { keyPath: 'key' });
+      if (!d.objectStoreNames.contains('goals'))
+        d.createObjectStore('goals', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('projects')) {
+        const ps = d.createObjectStore('projects', { keyPath: 'id', autoIncrement: true });
+        ps.createIndex('goalId', 'goalId', { unique: false });
+      }
+      if (!d.objectStoreNames.contains('goal_tasks')) {
+        const ts = d.createObjectStore('goal_tasks', { keyPath: 'id', autoIncrement: true });
+        ts.createIndex('projectId', 'projectId', { unique: false });
+      }
     };
   });
 }
@@ -65,6 +75,15 @@ function _del(store, key) {
 function _getAll(store) {
   return openDB().then(db => new Promise((res, rej) => {
     const r = db.transaction(store, 'readonly').objectStore(store).getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+}
+
+function _getAllByIndex(store, indexName, key) {
+  return openDB().then(db => new Promise((res, rej) => {
+    const r = db.transaction(store, 'readonly')
+      .objectStore(store).index(indexName).getAll(IDBKeyRange.only(key));
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   }));
@@ -119,5 +138,36 @@ const DB = {
       _getAll('daily'), _getAll('monthly'), this.getVision(), _getAll('templates')
     ]);
     return { daily, monthly, vision, templates };
-  }
+  },
+
+  /* --- 理想像 (Goals) --- */
+  getGoals() { return _getAll('goals'); },
+  getGoal(id) { return _get('goals', id); },
+  addGoal(goal) { return _add('goals', goal); },
+  updateGoal(goal) { return _put('goals', goal); },
+  async deleteGoal(id) {
+    const projects = await _getAllByIndex('projects', 'goalId', id);
+    for (const p of projects) {
+      const tasks = await _getAllByIndex('goal_tasks', 'projectId', p.id);
+      for (const t of tasks) await _del('goal_tasks', t.id);
+      await _del('projects', p.id);
+    }
+    return _del('goals', id);
+  },
+
+  /* --- プロジェクト (Projects) --- */
+  getProjectsForGoal(goalId) { return _getAllByIndex('projects', 'goalId', goalId); },
+  addProject(project) { return _add('projects', project); },
+  updateProject(project) { return _put('projects', project); },
+  async deleteProject(id) {
+    const tasks = await _getAllByIndex('goal_tasks', 'projectId', id);
+    for (const t of tasks) await _del('goal_tasks', t.id);
+    return _del('projects', id);
+  },
+
+  /* --- ゴールタスク (Goal Tasks) --- */
+  getTasksForProject(projectId) { return _getAllByIndex('goal_tasks', 'projectId', projectId); },
+  addGoalTask(task) { return _add('goal_tasks', task); },
+  updateGoalTask(task) { return _put('goal_tasks', task); },
+  deleteGoalTask(id) { return _del('goal_tasks', id); }
 };

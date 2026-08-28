@@ -63,7 +63,8 @@ const state = {
   monthDate: new Date(_today.getFullYear(), _today.getMonth(), 1),
   yearDate: new Date(_today.getFullYear(), 0, 1),
   tmplTarget: null,
-  templates: []
+  templates: [],
+  currentGoalId: null
 };
 
 /* ============================================================
@@ -83,10 +84,13 @@ function navigate(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById(`view-${id}`).classList.add('active');
-  document.querySelector(`.nav-item[data-view="${id}"]`).classList.add('active');
+  const navId = id === 'goal-detail' ? 'vision' : id;
+  const navItem = document.querySelector(`.nav-item[data-view="${navId}"]`);
+  if (navItem) navItem.classList.add('active');
   state.view = id;
   ({ today: loadTodayView, monthly: loadMonthlyView, yearly: loadYearlyView,
-     vision: loadVisionView, tasks: loadTasksView, settings: loadSettingsView })[id]();
+     vision: loadVisionView, tasks: loadTasksView, settings: loadSettingsView,
+     'goal-detail': loadGoalDetailView })[id]();
   updateHeader();
   updateFAB();
 }
@@ -97,6 +101,14 @@ function updateHeader() {
   const titleEl = document.getElementById('header-title');
   const prev = document.getElementById('btn-prev');
   const next = document.getElementById('btn-next');
+
+  if (state.view === 'goal-detail') {
+    prev.style.visibility = 'visible';
+    next.style.visibility = 'hidden';
+    // title set dynamically in loadGoalDetailView
+    return;
+  }
+
   const showNav = !['vision', 'tasks', 'settings'].includes(state.view);
   prev.style.visibility = next.style.visibility = showNav ? 'visible' : 'hidden';
 
@@ -113,13 +125,16 @@ function updateHeader() {
 }
 
 function updateFAB() {
-  const fab = document.getElementById('fab-today');
+  const fabToday = document.getElementById('fab-today');
+  const fabVision = document.getElementById('fab-vision');
   const isToday = state.view === 'today' && formatDate(state.todayDate) === formatDate(new Date());
-  fab.classList.toggle('hidden', isToday);
+  const onVisionArea = ['vision', 'goal-detail', 'tasks', 'settings'].includes(state.view);
+  fabToday.classList.toggle('hidden', isToday || onVisionArea);
+  fabVision.classList.toggle('hidden', state.view !== 'vision');
 }
 
 function goForward() {
-  if (['vision', 'tasks', 'settings'].includes(state.view)) return;
+  if (['vision', 'goal-detail', 'tasks', 'settings'].includes(state.view)) return;
   if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() + 1); state.todayDate = d; loadTodayView(); }
   else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() + 1); state.monthDate = d; loadMonthlyView(); }
   else if (state.view === 'yearly') { state.yearDate.setFullYear(state.yearDate.getFullYear() + 1); loadYearlyView(); }
@@ -127,6 +142,7 @@ function goForward() {
 }
 
 function goBack() {
+  if (state.view === 'goal-detail') { navigate('vision'); return; }
   if (['vision', 'tasks', 'settings'].includes(state.view)) return;
   if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() - 1); state.todayDate = d; loadTodayView(); }
   else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() - 1); state.monthDate = d; loadMonthlyView(); }
@@ -371,20 +387,278 @@ async function loadYearlyView() {
 }
 
 /* ============================================================
-   ビジョンビュー
+   ビジョンビュー（ダッシュボード）
    ============================================================ */
-let visionData = null;
-
 async function loadVisionView() {
-  visionData = await DB.getVision();
-  document.getElementById('vision-textarea').value = visionData.text || '';
+  await renderGoalList();
   updateHeader();
 }
 
-async function loadTasksView() {
-  if (!visionData) visionData = await DB.getVision();
-  renderTaskList();
-  updateHeader();
+async function renderGoalList() {
+  const container = document.getElementById('goal-list');
+  const goals = await DB.getGoals();
+
+  if (!goals.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-state-icon">🎯</span>
+        理想像がまだありません。<br>＋ボタンで追加しましょう！
+      </div>`;
+    return;
+  }
+
+  const allProjects = await Promise.all(goals.map(g => DB.getProjectsForGoal(g.id)));
+  const allTasksNested = await Promise.all(
+    allProjects.map(ps => Promise.all(ps.map(p => DB.getTasksForProject(p.id))))
+  );
+
+  container.innerHTML = goals.map((goal, gi) => {
+    const projects = allProjects[gi];
+    const tasks = allTasksNested[gi].flat();
+    const total = tasks.length;
+    const done = tasks.filter(t => t.completed).length;
+    const pct = total ? Math.round(done / total * 100) : 0;
+
+    return `
+      <div class="goal-card" data-id="${goal.id}">
+        <div class="goal-card-body">
+          <div class="goal-card-title">${escapeHtml(goal.title)}</div>
+          <div class="goal-card-meta">
+            <span class="goal-projects-count">${projects.length}件のプロジェクト</span>
+            <span class="goal-task-count">${total ? `${done}/${total}タスク` : 'タスクなし'}</span>
+          </div>
+          ${total ? `
+          <div class="goal-progress-track">
+            <div class="goal-progress-fill" style="width:${pct}%"></div>
+          </div>` : ''}
+        </div>
+        <button class="btn-goal-delete" data-id="${goal.id}" aria-label="削除">×</button>
+        <div class="goal-card-arrow">›</div>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('.goal-card').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('.btn-goal-delete')) return;
+      state.currentGoalId = parseInt(card.dataset.id);
+      navigate('goal-detail');
+    });
+  });
+
+  container.querySelectorAll('.btn-goal-delete').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      if (!confirm('この理想像と紐づくプロジェクト・タスクをすべて削除しますか？')) return;
+      await DB.deleteGoal(parseInt(btn.dataset.id));
+      await renderGoalList();
+    });
+  });
+}
+
+function initVisionView() {
+  document.getElementById('fab-vision').addEventListener('click', () => openGoalModal());
+  document.getElementById('goal-modal-close').addEventListener('click', closeGoalModal);
+  document.getElementById('goal-modal-overlay').addEventListener('click', closeGoalModal);
+
+  const titleInput = document.getElementById('goal-title-input');
+  const noteInput = document.getElementById('goal-note-input');
+
+  titleInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-save-goal').click(); }
+  });
+
+  document.getElementById('btn-save-goal').addEventListener('click', async () => {
+    const title = titleInput.value.trim();
+    if (!title) { titleInput.focus(); return; }
+    await DB.addGoal({ title, note: noteInput.value.trim(), createdAt: Date.now() });
+    closeGoalModal();
+    await renderGoalList();
+  });
+}
+
+function openGoalModal() {
+  document.getElementById('goal-title-input').value = '';
+  document.getElementById('goal-note-input').value = '';
+  document.getElementById('goal-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('goal-title-input').focus(), 80);
+}
+
+function closeGoalModal() {
+  document.getElementById('goal-modal').classList.add('hidden');
+}
+
+/* ============================================================
+   理想像詳細ビュー (Goal Detail)
+   ============================================================ */
+async function loadGoalDetailView() {
+  const goal = await DB.getGoal(state.currentGoalId);
+  if (!goal) { navigate('vision'); return; }
+
+  document.getElementById('header-title').textContent = goal.title;
+
+  const noteTA = document.getElementById('goal-note-textarea');
+  noteTA.value = goal.note || '';
+  autoResize(noteTA);
+
+  await renderProjectList();
+}
+
+function initGoalDetailView() {
+  const noteTA = document.getElementById('goal-note-textarea');
+  const _saveNote = debounce(async val => {
+    const goal = await DB.getGoal(state.currentGoalId);
+    if (!goal) return;
+    goal.note = val;
+    DB.updateGoal(goal);
+  }, 500);
+  noteTA.addEventListener('input', () => { autoResize(noteTA); _saveNote(noteTA.value); });
+
+  document.getElementById('btn-add-project').addEventListener('click', async () => {
+    if (!state.currentGoalId) return;
+    const newId = await DB.addProject({ goalId: state.currentGoalId, title: '', order: Date.now() });
+    await renderProjectList();
+    const input = document.querySelector(`.project-title-input[data-id="${newId}"]`);
+    if (input) {
+      const accordion = input.closest('.project-accordion');
+      if (accordion) accordion.classList.add('open');
+      input.focus();
+    }
+  });
+}
+
+async function renderProjectList() {
+  const container = document.getElementById('project-list');
+  const projects = await DB.getProjectsForGoal(state.currentGoalId);
+
+  if (!projects.length) {
+    container.innerHTML = '<div class="empty-state" style="padding:20px 0">プロジェクトがまだありません</div>';
+    return;
+  }
+
+  const allTasks = await Promise.all(projects.map(p => DB.getTasksForProject(p.id)));
+
+  container.innerHTML = projects.map((project, pi) => {
+    const tasks = allTasks[pi];
+    const done = tasks.filter(t => t.completed).length;
+    return `
+      <div class="project-accordion" data-id="${project.id}">
+        <div class="project-accordion-header">
+          <span class="accordion-chevron">›</span>
+          <div class="project-title-wrap">
+            <input class="project-title-input" data-id="${project.id}"
+              placeholder="プロジェクト名を入力..." maxlength="60">
+          </div>
+          <span class="project-task-badge">${done}/${tasks.length}</span>
+          <button class="btn-project-delete" data-id="${project.id}" aria-label="削除">×</button>
+        </div>
+        <div class="project-accordion-body">
+          <div class="project-tasks" data-project-id="${project.id}">
+            ${tasks.map(task => `
+              <div class="project-task-item" data-id="${task.id}">
+                <input type="checkbox" class="project-task-checkbox" data-id="${task.id}"${task.completed ? ' checked' : ''}>
+                <textarea class="project-task-text${task.completed ? ' completed' : ''}" data-id="${task.id}" rows="1" placeholder="タスクを入力..."></textarea>
+                <button class="btn-project-task-delete" data-id="${task.id}" aria-label="削除">×</button>
+              </div>`).join('')}
+          </div>
+          <button class="btn-add-task-to-project" data-project-id="${project.id}">＋ タスクを追加</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // タイトル入力値をJSで設定
+  container.querySelectorAll('.project-title-input').forEach((input, i) => {
+    input.value = projects[i].title;
+  });
+
+  // タスクテキスト値をJSで設定
+  const taskMap = {};
+  allTasks.forEach(tasks => tasks.forEach(t => { taskMap[t.id] = t; }));
+  container.querySelectorAll('.project-task-text').forEach(ta => {
+    const t = taskMap[parseInt(ta.dataset.id)];
+    if (t) { ta.value = t.text; autoResize(ta); }
+  });
+
+  // アコーディオントグル
+  container.querySelectorAll('.project-accordion-header').forEach(header => {
+    header.addEventListener('click', e => {
+      if (e.target.closest('.btn-project-delete') ||
+          e.target.closest('.project-title-input')) return;
+      header.closest('.project-accordion').classList.toggle('open');
+    });
+  });
+
+  // タイトル入力クリック伝播防止
+  container.querySelectorAll('.project-title-input').forEach(input => {
+    input.addEventListener('click', e => e.stopPropagation());
+    const _saveTitle = debounce(async val => {
+      const id = parseInt(input.dataset.id);
+      const proj = projects.find(p => p.id === id);
+      if (proj) { proj.title = val; await DB.updateProject(proj); }
+    }, 500);
+    input.addEventListener('input', () => _saveTitle(input.value));
+  });
+
+  // プロジェクト削除
+  container.querySelectorAll('.btn-project-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('このプロジェクトとタスクをすべて削除しますか？')) return;
+      await DB.deleteProject(parseInt(btn.dataset.id));
+      await renderProjectList();
+    });
+  });
+
+  // タスク追加
+  container.querySelectorAll('.btn-add-task-to-project').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const projectId = parseInt(btn.dataset.projectId);
+      const newId = await DB.addGoalTask({ projectId, text: '', completed: false, order: Date.now() });
+      await renderProjectList();
+      const ta = container.querySelector(`.project-task-text[data-id="${newId}"]`);
+      if (ta) {
+        ta.closest('.project-accordion').classList.add('open');
+        ta.focus();
+      }
+    });
+  });
+
+  // タスクチェックボックス
+  container.querySelectorAll('.project-task-checkbox').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const id = parseInt(cb.dataset.id);
+      const task = taskMap[id];
+      if (!task) return;
+      task.completed = cb.checked;
+      await DB.updateGoalTask(task);
+      const ta = container.querySelector(`.project-task-text[data-id="${id}"]`);
+      if (ta) ta.classList.toggle('completed', cb.checked);
+      // バッジ数更新
+      const accordion = cb.closest('.project-accordion');
+      const projectId = parseInt(accordion.dataset.id);
+      const updatedTasks = await DB.getTasksForProject(projectId);
+      const badge = accordion.querySelector('.project-task-badge');
+      if (badge) badge.textContent = `${updatedTasks.filter(t=>t.completed).length}/${updatedTasks.length}`;
+    });
+  });
+
+  // タスクテキスト保存
+  const _saveTaskText = debounce(async (id, val) => {
+    const task = taskMap[id];
+    if (!task) return;
+    task.text = val;
+    DB.updateGoalTask(task);
+  }, 500);
+
+  container.querySelectorAll('.project-task-text').forEach(ta => {
+    ta.addEventListener('input', () => { autoResize(ta); _saveTaskText(parseInt(ta.dataset.id), ta.value); });
+  });
+
+  // タスク削除
+  container.querySelectorAll('.btn-project-task-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await DB.deleteGoalTask(parseInt(btn.dataset.id));
+      await renderProjectList();
+    });
+  });
 }
 
 function renderTaskList() {
@@ -459,14 +733,15 @@ function renderTaskList() {
   });
 }
 
-function initVisionView() {
-  const visionTA = document.getElementById('vision-textarea');
-  const _saveVision = debounce(async val => {
-    if (!visionData) visionData = await DB.getVision();
-    visionData.text = val;
-    DB.saveVision(visionData);
-  }, 500);
-  visionTA.addEventListener('input', e => _saveVision(e.target.value));
+/* ============================================================
+   タスクビュー（既存・フラットリスト）
+   ============================================================ */
+let visionData = null;
+
+async function loadTasksView() {
+  if (!visionData) visionData = await DB.getVision();
+  renderTaskList();
+  updateHeader();
 }
 
 function initTasksView() {
@@ -715,6 +990,7 @@ async function init() {
   // ビュー初期化（イベントリスナー登録）
   initTodayView();
   initVisionView();
+  initGoalDetailView();
   initTasksView();
   initSettingsView();
 
