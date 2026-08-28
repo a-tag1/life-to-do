@@ -948,6 +948,9 @@ function initSwipe() {
     sy = e.touches[0].clientY;
   }, { passive: true });
   mc.addEventListener('touchend', e => {
+    // テキスト入力中はスワイプナビを無効化
+    const active = document.activeElement;
+    if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) return;
     const dx = sx - e.changedTouches[0].clientX;
     const dy = sy - e.changedTouches[0].clientY;
     if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
