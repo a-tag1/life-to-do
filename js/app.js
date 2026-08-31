@@ -133,21 +133,57 @@ function updateFAB() {
   fabVision.classList.toggle('hidden', state.view !== 'vision');
 }
 
+let isSliding = false;
+
+async function slideAndLoad(direction, loadFn) {
+  if (isSliding) return;
+  isSliding = true;
+  const view = document.querySelector('.view.active');
+  const DURATION = 260;
+  const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
+
+  if (view) {
+    const target = direction === 'forward' ? '-100%' : '100%';
+    const origin = direction === 'forward' ? '100%' : '-100%';
+    view.style.transition = `transform ${DURATION}ms ${EASE}`;
+    view.style.transform = `translateX(${target})`;
+    await new Promise(r => setTimeout(r, DURATION + 20));
+    view.style.transition = 'none';
+    view.style.transform = `translateX(${origin})`;
+  }
+
+  await loadFn();
+
+  if (view) {
+    view.getBoundingClientRect();
+    view.style.transition = `transform ${DURATION}ms ${EASE}`;
+    view.style.transform = '';
+    await new Promise(r => setTimeout(r, DURATION + 20));
+    view.style.transition = '';
+  }
+
+  isSliding = false;
+}
+
 function goForward() {
   if (['vision', 'goal-detail', 'tasks', 'settings'].includes(state.view)) return;
-  if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() + 1); state.todayDate = d; loadTodayView(); }
-  else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() + 1); state.monthDate = d; loadMonthlyView(); }
-  else if (state.view === 'yearly') { state.yearDate.setFullYear(state.yearDate.getFullYear() + 1); loadYearlyView(); }
-  updateHeader(); updateFAB();
+  slideAndLoad('forward', async () => {
+    if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() + 1); state.todayDate = d; await loadTodayView(); }
+    else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() + 1); state.monthDate = d; await loadMonthlyView(); }
+    else if (state.view === 'yearly') { state.yearDate.setFullYear(state.yearDate.getFullYear() + 1); await loadYearlyView(); }
+    updateHeader(); updateFAB();
+  });
 }
 
 function goBack() {
   if (state.view === 'goal-detail') { navigate('vision'); return; }
   if (['vision', 'tasks', 'settings'].includes(state.view)) return;
-  if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() - 1); state.todayDate = d; loadTodayView(); }
-  else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() - 1); state.monthDate = d; loadMonthlyView(); }
-  else if (state.view === 'yearly') { state.yearDate.setFullYear(state.yearDate.getFullYear() - 1); loadYearlyView(); }
-  updateHeader(); updateFAB();
+  slideAndLoad('back', async () => {
+    if (state.view === 'today') { flushTodaySave(); const d = new Date(state.todayDate); d.setDate(d.getDate() - 1); state.todayDate = d; await loadTodayView(); }
+    else if (state.view === 'monthly') { const d = new Date(state.monthDate); d.setMonth(d.getMonth() - 1); state.monthDate = d; await loadMonthlyView(); }
+    else if (state.view === 'yearly') { state.yearDate.setFullYear(state.yearDate.getFullYear() - 1); await loadYearlyView(); }
+    updateHeader(); updateFAB();
+  });
 }
 
 /* ============================================================
@@ -951,20 +987,55 @@ function closeTemplateModal() {
    スワイプナビゲーション
    ============================================================ */
 function initSwipe() {
-  let sx = 0, sy = 0;
+  let sx = 0, sy = 0, tracking = false;
+  const NAVLESS = ['vision', 'goal-detail', 'tasks', 'settings'];
   const mc = document.getElementById('main-content');
+
   mc.addEventListener('touchstart', e => {
+    if (isSliding) return;
     sx = e.touches[0].clientX;
     sy = e.touches[0].clientY;
+    tracking = false;
   }, { passive: true });
+
+  mc.addEventListener('touchmove', e => {
+    if (isSliding) return;
+    const focused = document.activeElement;
+    if (focused && (focused.tagName === 'TEXTAREA' || focused.tagName === 'INPUT')) return;
+    if (NAVLESS.includes(state.view)) return;
+
+    const dx = e.touches[0].clientX - sx;
+    const dy = e.touches[0].clientY - sy;
+    if (!tracking) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      tracking = Math.abs(dx) > Math.abs(dy);
+    }
+    if (!tracking) return;
+
+    const view = document.querySelector('.view.active');
+    if (!view) return;
+    view.style.transition = 'none';
+    view.style.transform = `translateX(${dx * 0.38}px)`;
+  }, { passive: true });
+
   mc.addEventListener('touchend', e => {
-    // テキスト入力中はスワイプナビを無効化
-    const active = document.activeElement;
-    if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) return;
+    const focused = document.activeElement;
+    if (focused && (focused.tagName === 'TEXTAREA' || focused.tagName === 'INPUT')) { tracking = false; return; }
+    if (!tracking) return;
+    tracking = false;
+
     const dx = sx - e.changedTouches[0].clientX;
     const dy = sy - e.changedTouches[0].clientY;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if (dx > 0) goForward(); else goBack();
+    if (Math.abs(dx) >= 50 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+      if (dx > 0) goForward(); else goBack();
+    } else {
+      const view = document.querySelector('.view.active');
+      if (view) {
+        view.style.transition = 'transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        view.style.transform = '';
+        view.addEventListener('transitionend', () => { view.style.transition = ''; }, { once: true });
+      }
+    }
   }, { passive: true });
 }
 
