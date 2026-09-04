@@ -32,6 +32,52 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
+/* --- ドラッグ並び替え（ポインターイベント / タッチ対応） --- */
+function enableDragReorder(container, itemSelector, handleSelector, onReorder) {
+  container.querySelectorAll(handleSelector).forEach(handle => {
+    const item = handle.closest(itemSelector);
+    if (!item) return;
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const pid = e.pointerId;
+      item.classList.add('dragging');
+      handle.setPointerCapture(pid);
+
+      const onMove = ev => {
+        const y = ev.clientY;
+        const siblings = [...container.querySelectorAll(itemSelector)].filter(el => el !== item);
+        let target = null;
+        for (const sib of siblings) {
+          const rect = sib.getBoundingClientRect();
+          if (y < rect.top + rect.height / 2) { target = sib; break; }
+        }
+        if (target) container.insertBefore(item, target);
+        else container.appendChild(item);
+      };
+      const onUp = () => {
+        handle.releasePointerCapture(pid);
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        item.classList.remove('dragging');
+        const ids = [...container.querySelectorAll(itemSelector)].map(el => el.dataset.id);
+        onReorder(ids);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  });
+}
+
+async function persistReorder(list, ids, updateFn) {
+  const map = new Map(list.map(x => [String(x.id), x]));
+  await Promise.all(ids.map((id, idx) => {
+    const obj = map.get(id);
+    if (!obj) return null;
+    obj.order = idx;
+    return updateFn(obj);
+  }));
+}
+
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -442,7 +488,10 @@ async function loadVisionView() {
 
 async function renderGoalList() {
   const container = document.getElementById('goal-list');
-  const goals = await DB.getGoals();
+  const goals = (await DB.getGoals()).sort((a, b) => {
+    if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
+    return (a.order ?? a.createdAt ?? 0) - (b.order ?? b.createdAt ?? 0);
+  });
 
   if (!goals.length) {
     container.innerHTML = `
@@ -466,7 +515,9 @@ async function renderGoalList() {
     const pct = total ? Math.round(done / total * 100) : 0;
 
     return `
-      <div class="goal-card" data-id="${goal.id}">
+      <div class="goal-card${goal.completed ? ' completed-item' : ''}" data-id="${goal.id}">
+        <span class="drag-handle goal-drag-handle" aria-label="並び替え">⠿</span>
+        <input type="checkbox" class="goal-complete-checkbox" data-id="${goal.id}"${goal.completed ? ' checked' : ''} aria-label="完了">
         <div class="goal-card-body">
           <div class="goal-card-title">${escapeHtml(goal.title)}</div>
           <div class="goal-card-meta">
@@ -485,7 +536,9 @@ async function renderGoalList() {
 
   container.querySelectorAll('.goal-card').forEach(card => {
     card.addEventListener('click', e => {
-      if (e.target.closest('.btn-goal-delete')) return;
+      if (e.target.closest('.btn-goal-delete') ||
+          e.target.closest('.goal-complete-checkbox') ||
+          e.target.closest('.goal-drag-handle')) return;
       state.currentGoalId = parseInt(card.dataset.id);
       navigate('goal-detail');
     });
@@ -498,6 +551,22 @@ async function renderGoalList() {
       await DB.deleteGoal(parseInt(btn.dataset.id));
       await renderGoalList();
     });
+  });
+
+  container.querySelectorAll('.goal-complete-checkbox').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async () => {
+      const id = parseInt(cb.dataset.id);
+      const goal = goals.find(g => g.id === id);
+      if (!goal) return;
+      goal.completed = cb.checked;
+      await DB.updateGoal(goal);
+      await renderGoalList();
+    });
+  });
+
+  enableDragReorder(container, '.goal-card', '.goal-drag-handle', async ids => {
+    await persistReorder(goals, ids, DB.updateGoal);
   });
 }
 
@@ -516,7 +585,7 @@ function initVisionView() {
   document.getElementById('btn-save-goal').addEventListener('click', async () => {
     const title = titleInput.value.trim();
     if (!title) { titleInput.focus(); return; }
-    await DB.addGoal({ title, note: noteInput.value.trim(), createdAt: Date.now() });
+    await DB.addGoal({ title, note: noteInput.value.trim(), createdAt: Date.now(), order: Date.now(), completed: false });
     closeGoalModal();
     await renderGoalList();
   });
@@ -561,7 +630,7 @@ function initGoalDetailView() {
 
   document.getElementById('btn-add-project').addEventListener('click', async () => {
     if (!state.currentGoalId) return;
-    const newId = await DB.addProject({ goalId: state.currentGoalId, title: '', order: Date.now() });
+    const newId = await DB.addProject({ goalId: state.currentGoalId, title: '', order: Date.now(), completed: false });
     await renderProjectList();
     const input = document.querySelector(`.project-title-input[data-id="${newId}"]`);
     if (input) {
@@ -574,7 +643,10 @@ function initGoalDetailView() {
 
 async function renderProjectList() {
   const container = document.getElementById('project-list');
-  const projects = await DB.getProjectsForGoal(state.currentGoalId);
+  const projects = (await DB.getProjectsForGoal(state.currentGoalId)).sort((a, b) => {
+    if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
 
   if (!projects.length) {
     container.innerHTML = '<div class="empty-state" style="padding:20px 0">プロジェクトがまだありません</div>';
@@ -582,13 +654,16 @@ async function renderProjectList() {
   }
 
   const allTasks = await Promise.all(projects.map(p => DB.getTasksForProject(p.id)));
+  allTasks.forEach(tasks => tasks.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
 
   container.innerHTML = projects.map((project, pi) => {
     const tasks = allTasks[pi];
     const done = tasks.filter(t => t.completed).length;
     return `
-      <div class="project-accordion" data-id="${project.id}">
+      <div class="project-accordion${project.completed ? ' completed-item' : ''}" data-id="${project.id}">
         <div class="project-accordion-header">
+          <span class="drag-handle project-drag-handle" aria-label="並び替え">⠿</span>
+          <input type="checkbox" class="project-complete-checkbox" data-id="${project.id}"${project.completed ? ' checked' : ''} aria-label="完了">
           <span class="accordion-chevron">›</span>
           <div class="project-title-wrap">
             <input class="project-title-input" data-id="${project.id}"
@@ -601,8 +676,12 @@ async function renderProjectList() {
           <div class="project-tasks" data-project-id="${project.id}">
             ${tasks.map(task => `
               <div class="project-task-item" data-id="${task.id}">
+                <span class="drag-handle project-task-drag-handle" aria-label="並び替え">⠿</span>
                 <input type="checkbox" class="project-task-checkbox" data-id="${task.id}"${task.completed ? ' checked' : ''}>
-                <textarea class="project-task-text${task.completed ? ' completed' : ''}" data-id="${task.id}" rows="1" placeholder="タスクを入力..."></textarea>
+                <div class="project-task-body">
+                  <textarea class="project-task-text${task.completed ? ' completed' : ''}" data-id="${task.id}" rows="1" placeholder="タスクを入力..."></textarea>
+                  <input type="date" class="project-task-due" data-id="${task.id}" value="${task.dueDate || ''}">
+                </div>
                 <button class="btn-project-task-delete" data-id="${task.id}" aria-label="削除">×</button>
               </div>`).join('')}
           </div>
@@ -628,7 +707,9 @@ async function renderProjectList() {
   container.querySelectorAll('.project-accordion-header').forEach(header => {
     header.addEventListener('click', e => {
       if (e.target.closest('.btn-project-delete') ||
-          e.target.closest('.project-title-input')) return;
+          e.target.closest('.project-title-input') ||
+          e.target.closest('.project-complete-checkbox') ||
+          e.target.closest('.project-drag-handle')) return;
       header.closest('.project-accordion').classList.toggle('open');
     });
   });
@@ -644,6 +725,19 @@ async function renderProjectList() {
     input.addEventListener('input', () => _saveTitle(input.value));
   });
 
+  // プロジェクト完了チェック
+  container.querySelectorAll('.project-complete-checkbox').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async () => {
+      const id = parseInt(cb.dataset.id);
+      const proj = projects.find(p => p.id === id);
+      if (!proj) return;
+      proj.completed = cb.checked;
+      await DB.updateProject(proj);
+      await renderProjectList();
+    });
+  });
+
   // プロジェクト削除
   container.querySelectorAll('.btn-project-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -657,7 +751,7 @@ async function renderProjectList() {
   container.querySelectorAll('.btn-add-task-to-project').forEach(btn => {
     btn.addEventListener('click', async () => {
       const projectId = parseInt(btn.dataset.projectId);
-      const newId = await DB.addGoalTask({ projectId, text: '', completed: false, order: Date.now() });
+      const newId = await DB.addGoalTask({ projectId, text: '', completed: false, order: Date.now(), dueDate: '' });
       await renderProjectList();
       const ta = container.querySelector(`.project-task-text[data-id="${newId}"]`);
       if (ta) {
@@ -698,6 +792,18 @@ async function renderProjectList() {
     ta.addEventListener('input', () => { autoResize(ta); _saveTaskText(parseInt(ta.dataset.id), ta.value); });
   });
 
+  // タスク期限保存
+  container.querySelectorAll('.project-task-due').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('change', async () => {
+      const id = parseInt(inp.dataset.id);
+      const task = taskMap[id];
+      if (!task) return;
+      task.dueDate = inp.value;
+      await DB.updateGoalTask(task);
+    });
+  });
+
   // タスク削除
   container.querySelectorAll('.btn-project-task-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -705,101 +811,134 @@ async function renderProjectList() {
       await renderProjectList();
     });
   });
+
+  // 並び替え：プロジェクト
+  enableDragReorder(container, '.project-accordion', '.project-drag-handle', async ids => {
+    await persistReorder(projects, ids, DB.updateProject);
+  });
+
+  // 並び替え：プロジェクト内タスク
+  container.querySelectorAll('.project-tasks').forEach(taskContainer => {
+    const projectId = parseInt(taskContainer.dataset.projectId);
+    const tasksForThis = allTasks[projects.findIndex(p => p.id === projectId)] || [];
+    enableDragReorder(taskContainer, '.project-task-item', '.project-task-drag-handle', async ids => {
+      await persistReorder(tasksForThis, ids, DB.updateGoalTask);
+    });
+  });
 }
 
-function renderTaskList() {
+async function renderTaskList() {
   const container = document.getElementById('task-list');
-  const tasks = visionData.tasks || [];
+  const [tasks, projects, goals] = await Promise.all([
+    DB.getAllGoalTasks(), DB.getAllProjects(), DB.getGoals()
+  ]);
+  const projectMap = new Map(projects.map(p => [p.id, p]));
+  const goalMap = new Map(goals.map(g => [g.id, g]));
 
   if (!tasks.length) {
-    container.innerHTML = '<div class="empty-state"><span class="empty-state-icon">🎯</span>タスクはまだありません</div>';
+    container.innerHTML = '<div class="empty-state"><span class="empty-state-icon">🎯</span>タスクはまだありません<br>ビジョンタブのプロジェクトからタスクを追加してください</div>';
     return;
   }
 
-  container.innerHTML = tasks.map((t, i) => `
-    <div class="task-item" data-idx="${i}">
-      <input type="checkbox" class="task-checkbox" data-idx="${i}"${t.completed ? ' checked' : ''}>
-      <textarea class="task-text${t.completed ? ' completed' : ''}" data-idx="${i}" rows="1" placeholder="タスクを入力..."></textarea>
-      <div class="task-actions">
-        <button class="btn-task-transfer" data-idx="${i}" title="今日の予定に転送">→今日</button>
-        <button class="btn-task-delete" data-idx="${i}" title="削除">×</button>
-      </div>
-    </div>`).join('');
+  const sorted = [...tasks].sort((a, b) => {
+    const da = a.dueDate || '9999-99-99';
+    const db2 = b.dueDate || '9999-99-99';
+    if (da !== db2) return da.localeCompare(db2);
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+
+  container.innerHTML = sorted.map(t => {
+    const project = projectMap.get(t.projectId);
+    const goal = project ? goalMap.get(project.goalId) : null;
+    const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
+    return `
+      <div class="task-item${t.completed ? ' completed-item' : ''}" data-id="${t.id}">
+        <input type="checkbox" class="task-checkbox" data-id="${t.id}"${t.completed ? ' checked' : ''}>
+        <div class="task-body">
+          ${label ? `<div class="task-source">${escapeHtml(label)}</div>` : ''}
+          <textarea class="task-text${t.completed ? ' completed' : ''}" data-id="${t.id}" rows="1" placeholder="タスクを入力..."></textarea>
+          <input type="date" class="task-due-input" data-id="${t.id}" value="${t.dueDate || ''}">
+        </div>
+        <div class="task-actions">
+          <button class="btn-task-transfer" data-id="${t.id}" title="今日の予定に転送">→今日</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  const taskMap = new Map(tasks.map(t => [t.id, t]));
 
   // テキスト値をJSで設定
   container.querySelectorAll('.task-text').forEach(ta => {
-    const i = parseInt(ta.dataset.idx);
-    ta.value = tasks[i]?.text || '';
+    const t = taskMap.get(parseInt(ta.dataset.id));
+    ta.value = t?.text || '';
     autoResize(ta);
   });
 
   // チェックボックス
   container.querySelectorAll('.task-checkbox').forEach(cb => {
     cb.addEventListener('change', async () => {
-      const i = parseInt(cb.dataset.idx);
-      visionData.tasks[i].completed = cb.checked;
-      const ta = container.querySelector(`.task-text[data-idx="${i}"]`);
+      const id = parseInt(cb.dataset.id);
+      const t = taskMap.get(id);
+      if (!t) return;
+      t.completed = cb.checked;
+      await DB.updateGoalTask(t);
+      const ta = container.querySelector(`.task-text[data-id="${id}"]`);
       if (ta) ta.classList.toggle('completed', cb.checked);
-      await DB.saveVision(visionData);
+      cb.closest('.task-item').classList.toggle('completed-item', cb.checked);
     });
   });
 
-  // テキスト
-  const _saveTask = debounce(async (idx, val) => {
-    if (visionData.tasks[idx] !== undefined) {
-      visionData.tasks[idx].text = val;
-      DB.saveVision(visionData);
-    }
+  // テキスト保存
+  const _saveTaskText = debounce(async (id, val) => {
+    const t = taskMap.get(id);
+    if (!t) return;
+    t.text = val;
+    DB.updateGoalTask(t);
   }, 500);
 
   container.querySelectorAll('.task-text').forEach(ta => {
-    ta.addEventListener('input', () => { autoResize(ta); _saveTask(parseInt(ta.dataset.idx), ta.value); });
+    ta.addEventListener('input', () => { autoResize(ta); _saveTaskText(parseInt(ta.dataset.id), ta.value); });
+  });
+
+  // 期限保存（変更で日付順に再表示）
+  container.querySelectorAll('.task-due-input').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const id = parseInt(inp.dataset.id);
+      const t = taskMap.get(id);
+      if (!t) return;
+      t.dueDate = inp.value;
+      await DB.updateGoalTask(t);
+      await renderTaskList();
+    });
   });
 
   // →今日ボタン
   container.querySelectorAll('.btn-task-transfer').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const task = visionData.tasks[parseInt(btn.dataset.idx)];
+      const t = taskMap.get(parseInt(btn.dataset.id));
+      if (!t) return;
       const todayStr = formatDate(new Date());
       const entry = await DB.getDaily(todayStr);
-      entry.plan = entry.plan ? entry.plan + '\n' + task.text : task.text;
+      entry.plan = entry.plan ? entry.plan + '\n' + t.text : t.text;
       await DB.saveDaily(entry);
       btn.textContent = '✓転送！';
       setTimeout(() => { btn.textContent = '→今日'; }, 1800);
     });
   });
-
-  // 削除ボタン
-  container.querySelectorAll('.btn-task-delete').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      visionData.tasks.splice(parseInt(btn.dataset.idx), 1);
-      await DB.saveVision(visionData);
-      renderTaskList();
-    });
-  });
 }
 
 /* ============================================================
-   タスクビュー（既存・フラットリスト）
+   タスクビュー（全プロジェクトのタスクを日付順に表示・編集専用）
    ============================================================ */
-let visionData = null;
-
 async function loadTasksView() {
-  if (!visionData) visionData = await DB.getVision();
-  renderTaskList();
+  await renderTaskList();
   updateHeader();
 }
 
 function initTasksView() {
-  document.getElementById('btn-add-task').addEventListener('click', async () => {
-    if (!visionData) visionData = await DB.getVision();
-    visionData.tasks.push({ id: Date.now(), text: '', completed: false });
-    await DB.saveVision(visionData);
-    renderTaskList();
-    const all = document.querySelectorAll('.task-text');
-    if (all.length) all[all.length - 1].focus();
-  });
+  // タスクタブでの新規追加は不可（編集専用）
 }
+
 
 /* ============================================================
    設定ビュー
@@ -902,12 +1041,29 @@ async function exportTxt() {
     lines.push('');
   }
 
-  if (data.vision.text || data.vision.tasks?.length) {
+  if (data.vision.text || data.goals?.length) {
     lines.push('=== ビジョン・目標 ===');
     if (data.vision.text) lines.push(data.vision.text);
-    if (data.vision.tasks?.length) {
-      lines.push('\n【タスク】');
-      data.vision.tasks.forEach(t => lines.push(`${t.completed ? '[✓]' : '[ ]'} ${t.text}`));
+    if (data.goals?.length) {
+      const projectsByGoal = new Map();
+      (data.projects || []).forEach(p => {
+        if (!projectsByGoal.has(p.goalId)) projectsByGoal.set(p.goalId, []);
+        projectsByGoal.get(p.goalId).push(p);
+      });
+      const tasksByProject = new Map();
+      (data.goalTasks || []).forEach(t => {
+        if (!tasksByProject.has(t.projectId)) tasksByProject.set(t.projectId, []);
+        tasksByProject.get(t.projectId).push(t);
+      });
+      data.goals.forEach(g => {
+        lines.push(`\n【理想像】${g.completed ? '[✓] ' : ''}${g.title}`);
+        (projectsByGoal.get(g.id) || []).forEach(p => {
+          lines.push(`  ・${p.completed ? '[✓] ' : ''}${p.title}`);
+          (tasksByProject.get(p.id) || []).forEach(t => {
+            lines.push(`      ${t.completed ? '[✓]' : '[ ]'} ${t.text}${t.dueDate ? ` (期限: ${t.dueDate})` : ''}`);
+          });
+        });
+      });
     }
     lines.push('');
   }

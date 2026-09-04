@@ -134,10 +134,11 @@ const DB = {
 
   /* --- 全データエクスポート --- */
   async exportAll() {
-    const [daily, monthly, vision, templates] = await Promise.all([
-      _getAll('daily'), _getAll('monthly'), this.getVision(), _getAll('templates')
+    const [daily, monthly, vision, templates, goals, projects, goalTasks] = await Promise.all([
+      _getAll('daily'), _getAll('monthly'), this.getVision(), _getAll('templates'),
+      _getAll('goals'), _getAll('projects'), _getAll('goal_tasks')
     ]);
-    return { daily, monthly, vision, templates };
+    return { daily, monthly, vision, templates, goals, projects, goalTasks };
   },
 
   /* --- 理想像 (Goals) --- */
@@ -156,6 +157,7 @@ const DB = {
   },
 
   /* --- プロジェクト (Projects) --- */
+  getAllProjects() { return _getAll('projects'); },
   getProjectsForGoal(goalId) { return _getAllByIndex('projects', 'goalId', goalId); },
   addProject(project) { return _add('projects', project); },
   updateProject(project) { return _put('projects', project); },
@@ -166,6 +168,7 @@ const DB = {
   },
 
   /* --- ゴールタスク (Goal Tasks) --- */
+  getAllGoalTasks() { return _getAll('goal_tasks'); },
   getTasksForProject(projectId) { return _getAllByIndex('goal_tasks', 'projectId', projectId); },
   addGoalTask(task) { return _add('goal_tasks', task); },
   updateGoalTask(task) { return _put('goal_tasks', task); },
