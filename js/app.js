@@ -611,6 +611,9 @@ async function loadGoalDetailView() {
 
   document.getElementById('header-title').textContent = goal.title;
 
+  const titleInput = document.getElementById('goal-title-textarea');
+  titleInput.value = goal.title || '';
+
   const noteTA = document.getElementById('goal-note-textarea');
   noteTA.value = goal.note || '';
   autoResize(noteTA);
@@ -619,6 +622,16 @@ async function loadGoalDetailView() {
 }
 
 function initGoalDetailView() {
+  const titleInput = document.getElementById('goal-title-textarea');
+  const _saveTitle = debounce(async val => {
+    const goal = await DB.getGoal(state.currentGoalId);
+    if (!goal) return;
+    goal.title = val.trim() || goal.title;
+    await DB.updateGoal(goal);
+    document.getElementById('header-title').textContent = goal.title;
+  }, 500);
+  titleInput.addEventListener('input', () => _saveTitle(titleInput.value));
+
   const noteTA = document.getElementById('goal-note-textarea');
   const _saveNote = debounce(async val => {
     const goal = await DB.getGoal(state.currentGoalId);
