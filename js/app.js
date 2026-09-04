@@ -676,14 +676,16 @@ async function renderProjectList() {
       <div class="project-accordion${project.completed ? ' completed-item' : ''}" data-id="${project.id}">
         <div class="project-accordion-header">
           <span class="drag-handle project-drag-handle" aria-label="並び替え">⠿</span>
-          <input type="checkbox" class="project-complete-checkbox" data-id="${project.id}"${project.completed ? ' checked' : ''} aria-label="完了">
           <span class="accordion-chevron">›</span>
           <div class="project-title-wrap">
             <input class="project-title-input" data-id="${project.id}"
               placeholder="プロジェクト名を入力..." maxlength="60">
           </div>
           <span class="project-task-badge">${done}/${tasks.length}</span>
-          <button class="btn-project-delete" data-id="${project.id}" aria-label="削除">×</button>
+          <span class="project-header-actions">
+            <input type="checkbox" class="project-complete-checkbox" data-id="${project.id}"${project.completed ? ' checked' : ''} aria-label="完了">
+            <button class="btn-project-delete" data-id="${project.id}" aria-label="削除">×</button>
+          </span>
         </div>
         <div class="project-accordion-body">
           <div class="project-tasks" data-project-id="${project.id}">

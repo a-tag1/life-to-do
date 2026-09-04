@@ -375,6 +375,10 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
 .project-accordion.open { border-color:var(--accent); }
 .project-accordion.completed-item { opacity:0.55; }
 .project-complete-checkbox { width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); cursor:pointer; }
+.project-header-actions {
+  display:flex; align-items:center; gap:10px; flex-shrink:0;
+  margin-left:4px; padding-left:10px; border-left:1px solid var(--sep);
+}
 
 .project-accordion-header {
   display:flex; align-items:center; gap:8px;
