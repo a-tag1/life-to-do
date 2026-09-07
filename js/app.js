@@ -113,6 +113,16 @@ const state = {
   currentGoalId: null
 };
 
+const cloudSync = {
+  token: '',
+  fileId: '',
+  timer: null,
+  restoring: false
+};
+
+const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GOOGLE_DRIVE_FILE_NAME = 'life-todo-sync.json';
+
 /* ============================================================
    ダークモード
    ============================================================ */
@@ -1060,8 +1070,146 @@ function initSettingsView() {
   document.getElementById('btn-export-txt').addEventListener('click', exportTxt);
   document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
   document.getElementById('btn-share').addEventListener('click', shareData);
-  document.getElementById('btn-google-drive').addEventListener('click', () => {
-    alert('Google Drive連携は今後実装予定です。\n現在はエクスポート機能でバックアップしてください。');
+  document.getElementById('btn-google-drive').addEventListener('click', connectGoogleDrive);
+  document.getElementById('btn-google-drive-sync').addEventListener('click', syncToGoogleDrive);
+}
+
+function updateGoogleDriveStatus(message) {
+  const status = document.getElementById('google-drive-status');
+  if (status) status.textContent = message;
+}
+
+async function connectGoogleDrive() {
+  const clientIdInput = document.getElementById('google-client-id-input');
+  const clientId = clientIdInput.value.trim();
+  if (!clientId) {
+    updateGoogleDriveStatus('OAuth クライアント ID を入力してください');
+    clientIdInput.focus();
+    return;
+  }
+  if (!window.google?.accounts?.oauth2) {
+    updateGoogleDriveStatus('Google 認証ライブラリを読み込めませんでした。通信状態を確認してください');
+    return;
+  }
+
+  await DB.saveSetting('googleClientId', clientId);
+  updateGoogleDriveStatus('Google アカウントに接続しています...');
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: GOOGLE_DRIVE_SCOPE,
+    callback: async response => {
+      if (response.error) {
+        updateGoogleDriveStatus(`接続に失敗しました: ${response.error}`);
+        return;
+      }
+      cloudSync.token = response.access_token;
+      try {
+        await loadOrCreateGoogleDriveBackup();
+        document.getElementById('btn-google-drive-sync').disabled = false;
+      } catch (error) {
+        console.error(error);
+        updateGoogleDriveStatus('Google Drive との同期に失敗しました');
+      }
+    }
+  });
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+async function googleDriveRequest(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: { Authorization: `Bearer ${cloudSync.token}`, ...(options.headers || {}) }
+  });
+  if (!response.ok) throw new Error(`Google Drive API error: ${response.status}`);
+  return response;
+}
+
+async function findGoogleDriveBackup() {
+  const query = encodeURIComponent(`name = '${GOOGLE_DRIVE_FILE_NAME}'`);
+  const response = await googleDriveRequest(
+    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${query}&fields=files(id,modifiedTime)`
+  );
+  const result = await response.json();
+  return result.files?.[0] || null;
+}
+
+async function loadOrCreateGoogleDriveBackup() {
+  const remoteFile = await findGoogleDriveBackup();
+  if (remoteFile) {
+    cloudSync.fileId = remoteFile.id;
+    const response = await googleDriveRequest(`https://www.googleapis.com/drive/v3/files/${remoteFile.id}?alt=media`);
+    const data = await response.json();
+    if (!data || !Array.isArray(data.daily) || !Array.isArray(data.goalTasks)) {
+      throw new Error('Invalid Google Drive backup');
+    }
+    cloudSync.restoring = true;
+    try {
+      await DB.restoreAll(data);
+    } finally {
+      cloudSync.restoring = false;
+    }
+    state.templates = await DB.getTemplates();
+    applyDarkMode(await DB.getSetting('darkMode', 'system'));
+    updateGoogleDriveStatus(`クラウドのデータを読み込みました（${new Date(remoteFile.modifiedTime).toLocaleString('ja-JP')}）`);
+    navigate(state.view);
+    return;
+  }
+
+  await syncToGoogleDrive();
+}
+
+async function syncToGoogleDrive() {
+  if (!cloudSync.token || cloudSync.restoring) return;
+  const data = await DB.exportAll();
+  const boundary = `life-todo-${Date.now()}`;
+  const body = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(cloudSync.fileId ? { name: GOOGLE_DRIVE_FILE_NAME } : { name: GOOGLE_DRIVE_FILE_NAME, parents: ['appDataFolder'] }),
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(data),
+    `--${boundary}--`,
+    ''
+  ].join('\r\n');
+  const url = cloudSync.fileId
+    ? `https://www.googleapis.com/upload/drive/v3/files/${cloudSync.fileId}?uploadType=multipart`
+    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+  const response = await googleDriveRequest(url, {
+    method: cloudSync.fileId ? 'PATCH' : 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body
+  });
+  const result = await response.json();
+  cloudSync.fileId = result.id || cloudSync.fileId;
+  updateGoogleDriveStatus(`同期済み: ${new Date().toLocaleString('ja-JP')}`);
+}
+
+function scheduleGoogleDriveSync() {
+  if (!cloudSync.token || cloudSync.restoring) return;
+  clearTimeout(cloudSync.timer);
+  cloudSync.timer = setTimeout(() => {
+    syncToGoogleDrive().catch(error => {
+      console.error(error);
+      updateGoogleDriveStatus('自動同期に失敗しました。今すぐ同期をお試しください');
+    });
+  }, 1000);
+}
+
+function enableGoogleDriveAutoSync() {
+  [
+    'saveDaily', 'saveMonthly', 'saveVision', 'addTemplate', 'deleteTemplate',
+    'saveSetting', 'addGoal', 'updateGoal', 'deleteGoal', 'addProject',
+    'updateProject', 'deleteProject', 'addGoalTask', 'updateGoalTask', 'deleteGoalTask'
+  ].forEach(name => {
+    const original = DB[name].bind(DB);
+    DB[name] = async (...args) => {
+      const result = await original(...args);
+      scheduleGoogleDriveSync();
+      return result;
+    };
   });
 }
 
@@ -1255,6 +1403,9 @@ async function init() {
 
   // ダークモード適用
   applyDarkMode(await DB.getSetting('darkMode', 'system'));
+
+  document.getElementById('google-client-id-input').value = await DB.getSetting('googleClientId', '');
+  enableGoogleDriveAutoSync();
 
   // テンプレート読み込み
   state.templates = await DB.getTemplates();

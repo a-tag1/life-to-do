@@ -134,11 +134,34 @@ const DB = {
 
   /* --- 全データエクスポート --- */
   async exportAll() {
-    const [daily, monthly, vision, templates, goals, projects, goalTasks] = await Promise.all([
+    const [daily, monthly, vision, templates, settings, goals, projects, goalTasks] = await Promise.all([
       _getAll('daily'), _getAll('monthly'), this.getVision(), _getAll('templates'),
-      _getAll('goals'), _getAll('projects'), _getAll('goal_tasks')
+      _getAll('settings'), _getAll('goals'), _getAll('projects'), _getAll('goal_tasks')
     ]);
-    return { daily, monthly, vision, templates, goals, projects, goalTasks };
+    return { daily, monthly, vision, templates, settings, goals, projects, goalTasks };
+  },
+
+  async restoreAll(data) {
+    const stores = ['daily', 'monthly', 'vision', 'templates', 'settings', 'goals', 'projects', 'goal_tasks'];
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(stores, 'readwrite');
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+
+      stores.forEach(store => transaction.objectStore(store).clear());
+      const records = {
+        daily: data.daily || [], monthly: data.monthly || [],
+        vision: data.vision ? [data.vision] : [], templates: data.templates || [],
+        settings: data.settings || [], goals: data.goals || [],
+        projects: data.projects || [], goal_tasks: data.goalTasks || []
+      };
+      Object.entries(records).forEach(([store, values]) => {
+        const objectStore = transaction.objectStore(store);
+        values.forEach(value => objectStore.put(value));
+      });
+    });
   },
 
   /* --- 理想像 (Goals) --- */
