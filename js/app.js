@@ -117,7 +117,9 @@ const cloudSync = {
   token: '',
   fileId: '',
   timer: null,
-  restoring: false
+  restoring: false,
+  connecting: false,
+  connectionTimeout: null
 };
 
 const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
@@ -1079,7 +1081,15 @@ function updateGoogleDriveStatus(message) {
   if (status) status.textContent = message;
 }
 
+function finishGoogleDriveConnection() {
+  cloudSync.connecting = false;
+  clearTimeout(cloudSync.connectionTimeout);
+  cloudSync.connectionTimeout = null;
+  document.getElementById('btn-google-drive').disabled = false;
+}
+
 async function connectGoogleDrive() {
+  if (cloudSync.connecting) return;
   const clientIdInput = document.getElementById('google-client-id-input');
   const clientId = clientIdInput.value.trim();
   if (!clientId) {
@@ -1093,11 +1103,14 @@ async function connectGoogleDrive() {
   }
 
   await DB.saveSetting('googleClientId', clientId);
+  cloudSync.connecting = true;
+  document.getElementById('btn-google-drive').disabled = true;
   updateGoogleDriveStatus('Google アカウントに接続しています...');
   const tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: GOOGLE_DRIVE_SCOPE,
     callback: async response => {
+      finishGoogleDriveConnection();
       if (response.error) {
         updateGoogleDriveStatus(`接続に失敗しました: ${response.error}`);
         return;
@@ -1110,9 +1123,30 @@ async function connectGoogleDrive() {
         console.error(error);
         updateGoogleDriveStatus('Google Drive との同期に失敗しました');
       }
+    },
+    error_callback: error => {
+      finishGoogleDriveConnection();
+      if (error.type === 'popup_failed_to_open') {
+        updateGoogleDriveStatus('認証画面を開けませんでした。スマホではブラウザの通常タブで開き、ポップアップを許可してください');
+      } else if (error.type === 'popup_closed') {
+        updateGoogleDriveStatus('認証画面が閉じられたため、接続を中止しました');
+      } else {
+        updateGoogleDriveStatus(`接続に失敗しました: ${error.type || '認証エラー'}`);
+      }
     }
   });
-  tokenClient.requestAccessToken({ prompt: 'consent' });
+  cloudSync.connectionTimeout = setTimeout(() => {
+    if (!cloudSync.connecting) return;
+    finishGoogleDriveConnection();
+    updateGoogleDriveStatus('認証画面から応答がありません。スマホではブラウザの通常タブで開き、ポップアップを許可してください');
+  }, 30000);
+  try {
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  } catch (error) {
+    console.error(error);
+    finishGoogleDriveConnection();
+    updateGoogleDriveStatus('認証を開始できませんでした。OAuth クライアント ID と承認済みの JavaScript 生成元を確認してください');
+  }
 }
 
 async function googleDriveRequest(url, options = {}) {
