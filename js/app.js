@@ -861,8 +861,17 @@ async function renderTaskList() {
     if (da !== db2) return da.localeCompare(db2);
     return (a.order ?? 0) - (b.order ?? 0);
   });
+  const activeTasks = sorted.filter(t => !t.completed);
+  const completedTasks = sorted
+    .filter(t => t.completed)
+    .sort((a, b) => {
+      const da = a.dueDate || '';
+      const db2 = b.dueDate || '';
+      if (da !== db2) return db2.localeCompare(da);
+      return (b.order ?? 0) - (a.order ?? 0);
+    });
 
-  container.innerHTML = sorted.map(t => {
+  const renderTask = t => {
     const project = projectMap.get(t.projectId);
     const goal = project ? goalMap.get(project.goalId) : null;
     const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
@@ -878,7 +887,20 @@ async function renderTaskList() {
           <button class="btn-task-transfer" data-id="${t.id}" title="今日の予定に転送">→今日</button>
         </div>
       </div>`;
-  }).join('');
+  };
+
+  container.innerHTML = `
+    ${activeTasks.map(renderTask).join('')}
+    ${completedTasks.length ? `
+      <section class="completed-tasks-section">
+        <button class="completed-tasks-toggle" type="button" aria-expanded="false">
+          <span>完了したタスク（${completedTasks.length}）</span>
+          <span class="completed-tasks-chevron">›</span>
+        </button>
+        <div class="completed-tasks-list">
+          ${completedTasks.map(renderTask).join('')}
+        </div>
+      </section>` : ''}`;
 
   const taskMap = new Map(tasks.map(t => [t.id, t]));
 
@@ -889,6 +911,15 @@ async function renderTaskList() {
     autoResize(ta);
   });
 
+  const completedToggle = container.querySelector('.completed-tasks-toggle');
+  if (completedToggle) {
+    completedToggle.addEventListener('click', () => {
+      const section = completedToggle.closest('.completed-tasks-section');
+      const isOpen = section.classList.toggle('open');
+      completedToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+  }
+
   // チェックボックス
   container.querySelectorAll('.task-checkbox').forEach(cb => {
     cb.addEventListener('change', async () => {
@@ -897,9 +928,7 @@ async function renderTaskList() {
       if (!t) return;
       t.completed = cb.checked;
       await DB.updateGoalTask(t);
-      const ta = container.querySelector(`.task-text[data-id="${id}"]`);
-      if (ta) ta.classList.toggle('completed', cb.checked);
-      cb.closest('.task-item').classList.toggle('completed-item', cb.checked);
+      await renderTaskList();
     });
   });
 
