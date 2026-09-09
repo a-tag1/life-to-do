@@ -1233,6 +1233,10 @@ function finishGoogleDriveConnection() {
   document.getElementById('btn-google-drive').disabled = false;
 }
 
+function isStandaloneApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
 async function connectGoogleDrive() {
   if (cloudSync.connecting) return;
   const clientIdInput = document.getElementById('google-client-id-input');
@@ -1247,7 +1251,18 @@ async function connectGoogleDrive() {
     return;
   }
 
-  await DB.saveSetting('googleClientId', clientId);
+  // ホーム画面から起動したPWA（standalone）はポップアップを開けないため、通常のブラウザタブへ誘導する
+  if (isStandaloneApp()) {
+    const opened = window.open(location.href, '_blank');
+    updateGoogleDriveStatus(opened
+      ? 'ブラウザでLifeToDoを開きました。開いたタブで「Google Driveに接続」をもう一度お試しください'
+      : 'ホーム画面からの起動では認証画面を開けません。ブラウザで直接LifeToDoを開いて接続してください');
+    return;
+  }
+
+  // 保存はバックグラウンドで行い、requestAccessToken までの間にawaitを挟まないことで
+  // クリック操作（ユーザー操作）を維持し、ポップアップがブロックされないようにする
+  DB.saveSetting('googleClientId', clientId);
   cloudSync.connecting = true;
   document.getElementById('btn-google-drive').disabled = true;
   updateGoogleDriveStatus('Google アカウントに接続しています...');
@@ -1275,6 +1290,8 @@ async function connectGoogleDrive() {
         updateGoogleDriveStatus('認証画面を開けませんでした。スマホではブラウザの通常タブで開き、ポップアップを許可してください');
       } else if (error.type === 'popup_closed') {
         updateGoogleDriveStatus('認証画面が閉じられたため、接続を中止しました');
+      } else if (error.type === 'disallowed_useragent') {
+        updateGoogleDriveStatus('このアプリ内ブラウザでは認証できません。標準のブラウザ（Chrome/Safariなど）で開いてお試しください');
       } else {
         updateGoogleDriveStatus(`接続に失敗しました: ${error.type || '認証エラー'}`);
       }
