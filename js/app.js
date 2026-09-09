@@ -1211,8 +1211,11 @@ function initSettingsView() {
     applyDarkMode(e.target.value);
   });
 
-  document.getElementById('btn-export-txt').addEventListener('click', exportTxt);
-  document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
+  document.getElementById('btn-export-json').addEventListener('click', exportJson);
+  document.getElementById('btn-import-json').addEventListener('click', () => {
+    document.getElementById('import-json-input').click();
+  });
+  document.getElementById('import-json-input').addEventListener('change', importJson);
   document.getElementById('btn-share').addEventListener('click', shareData);
   document.getElementById('btn-google-drive').addEventListener('click', connectGoogleDrive);
   document.getElementById('btn-google-drive-sync').addEventListener('click', syncToGoogleDrive);
@@ -1389,66 +1392,34 @@ function enableGoogleDriveAutoSync() {
   });
 }
 
-async function exportTxt() {
+async function exportJson() {
   const data = await DB.exportAll();
-  const lines = [
-    '=== LifeToDo エクスポート ===',
-    `出力日時: ${new Date().toLocaleString('ja-JP')}`,
-    ''
-  ];
-
-  const sorted = [...data.daily].sort((a, b) => a.date.localeCompare(b.date));
-  if (sorted.length) {
-    lines.push('=== 日別記録 ===');
-    sorted.forEach(e => {
-      lines.push(`\n--- ${e.date}${e.star ? ' ★' : ''} ---`);
-      if (e.plan) { lines.push('【予定】'); lines.push(e.plan); }
-      if (e.actual) { lines.push('【実績】'); lines.push(e.actual); }
-      if (e.note) { lines.push('【メモ】'); lines.push(e.note); }
-    });
-    lines.push('');
-  }
-
-  if (data.vision.text || data.goals?.length) {
-    lines.push('=== ビジョン・目標 ===');
-    if (data.vision.text) lines.push(data.vision.text);
-    if (data.goals?.length) {
-      const projectsByGoal = new Map();
-      (data.projects || []).forEach(p => {
-        if (!projectsByGoal.has(p.goalId)) projectsByGoal.set(p.goalId, []);
-        projectsByGoal.get(p.goalId).push(p);
-      });
-      const tasksByProject = new Map();
-      (data.goalTasks || []).forEach(t => {
-        if (!tasksByProject.has(t.projectId)) tasksByProject.set(t.projectId, []);
-        tasksByProject.get(t.projectId).push(t);
-      });
-      data.goals.forEach(g => {
-        lines.push(`\n【理想像】${g.completed ? '[✓] ' : ''}${g.title}`);
-        (projectsByGoal.get(g.id) || []).forEach(p => {
-          lines.push(`  ・${p.completed ? '[✓] ' : ''}${p.title}`);
-          (tasksByProject.get(p.id) || []).forEach(t => {
-            lines.push(`      ${t.completed ? '[✓]' : '[ ]'} ${t.text}${t.dueDate ? ` (期限: ${t.dueDate})` : ''}`);
-          });
-        });
-      });
-    }
-    lines.push('');
-  }
-
-  downloadBlob(new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' }),
-    `life-todo-${formatDate(new Date())}.txt`);
+  downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' }),
+    `life-todo-${formatDate(new Date())}.json`);
 }
 
-async function exportCsv() {
-  const data = await DB.exportAll();
-  const rows = [['日付', '予定', '実績', 'メモ', 'スター']];
-  [...data.daily].sort((a, b) => a.date.localeCompare(b.date)).forEach(e => {
-    rows.push([e.date, e.plan || '', e.actual || '', e.note || '', e.star ? '★' : '']);
-  });
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  downloadBlob(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }),
-    `life-todo-${formatDate(new Date())}.csv`);
+async function importJson(e) {
+  const input = e.target;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || !Array.isArray(data.daily) || !Array.isArray(data.goalTasks)) {
+      throw new Error('Invalid backup file');
+    }
+    if (!confirm('現在のデータはすべて上書きされます。読み込みますか？')) return;
+    await DB.restoreAll(data);
+    state.templates = await DB.getTemplates();
+    applyDarkMode(await DB.getSetting('darkMode', 'system'));
+    alert('データを読み込みました');
+    navigate(state.view);
+  } catch (error) {
+    console.error(error);
+    alert('データの読み込みに失敗しました。ファイル形式を確認してください');
+  } finally {
+    input.value = '';
+  }
 }
 
 async function shareData() {
