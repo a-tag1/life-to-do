@@ -249,6 +249,14 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   background:var(--inset); color:var(--text); min-height:50px; display:block; overflow:hidden;
 }
 
+.month-day-tasks { padding:6px 14px; border-bottom:1px solid var(--sep); }
+.month-day-task { display:flex; align-items:flex-start; gap:8px; padding:4px 0; font-size:13px; }
+.month-day-task.completed { opacity:0.5; }
+.month-day-task-checkbox { width:16px; height:16px; flex-shrink:0; margin-top:2px; accent-color:var(--accent); cursor:pointer; }
+.month-day-task-text { color:var(--text); line-height:1.5; }
+.month-day-task.completed .month-day-task-text { text-decoration:line-through; }
+.month-day-task-text small { color:var(--text-2); font-weight:400; }
+
 /* ============================================================ Yearly View */
 .year-month {
   background:var(--surface); border-radius:var(--r);
@@ -266,6 +274,15 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   transition:border-color var(--ease);
 }
 .year-note:focus { border-color:var(--accent); }
+
+.year-month-tasks { margin-top:10px; border-top:1px solid var(--sep); padding-top:8px; }
+.year-month-task { display:flex; align-items:flex-start; gap:8px; padding:4px 0; font-size:13px; }
+.year-month-task.completed { opacity:0.5; }
+.year-month-task-checkbox { width:16px; height:16px; flex-shrink:0; margin-top:2px; accent-color:var(--accent); cursor:pointer; }
+.year-month-task-date { color:var(--text-2); font-weight:600; white-space:nowrap; min-width:28px; }
+.year-month-task-text { color:var(--text); line-height:1.5; }
+.year-month-task.completed .year-month-task-text { text-decoration:line-through; }
+.year-month-task-text small { color:var(--text-2); font-weight:400; }
 
 .starred-days { margin-top:10px; border-top:1px solid var(--sep); padding-top:8px; }
 .starred-days-label {

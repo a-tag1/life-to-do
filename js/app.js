@@ -337,9 +337,34 @@ async function loadMonthlyView() {
   const container = document.getElementById('monthly-days');
   container.innerHTML = '<div class="empty-state">読み込み中...</div>';
 
-  const entries = await Promise.all(
-    Array.from({ length: days }, (_, i) => DB.getDaily(`${monthStr}-${pad(i + 1)}`))
-  );
+  const [entries, allTasks, allProjects, allGoals] = await Promise.all([
+    Promise.all(Array.from({ length: days }, (_, i) => DB.getDaily(`${monthStr}-${pad(i + 1)}`))),
+    DB.getAllGoalTasks(), DB.getAllProjects(), DB.getGoals()
+  ]);
+
+  const projectMap = new Map(allProjects.map(p => [p.id, p]));
+  const goalMap = new Map(allGoals.map(g => [g.id, g]));
+  const tasksByDate = {};
+  allTasks.forEach(t => {
+    if (!t.dueDate) return;
+    (tasksByDate[t.dueDate] = tasksByDate[t.dueDate] || []).push(t);
+  });
+
+  const renderDayTasks = dateStr => {
+    const tasks = tasksByDate[dateStr];
+    if (!tasks || !tasks.length) return '';
+    return `<div class="month-day-tasks">
+      ${tasks.map(t => {
+        const project = projectMap.get(t.projectId);
+        const goal = project ? goalMap.get(project.goalId) : null;
+        const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
+        return `<div class="month-day-task${t.completed ? ' completed' : ''}" data-id="${t.id}">
+          <input type="checkbox" class="month-day-task-checkbox" data-id="${t.id}"${t.completed ? ' checked' : ''}>
+          <span class="month-day-task-text">${escapeHtml(t.text || '')}${label ? ` <small>（${escapeHtml(label)}）</small>` : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  };
 
   let html = '';
   entries.forEach((entry, i) => {
@@ -353,11 +378,24 @@ async function loadMonthlyView() {
           <span class="month-day-num ${dowCls}">${d}日（${DAY_JP[dow]}）</span>
           <button class="star-btn${entry.star ? ' active' : ''}" data-date="${dateStr}" aria-label="スターマーク">★</button>
         </div>
+        ${renderDayTasks(dateStr)}
         <textarea class="month-note" data-date="${dateStr}" placeholder="メモ..." rows="2"></textarea>
       </div>`;
   });
 
   container.innerHTML = html;
+
+  // 期限タスクのチェックボックス
+  const taskById = new Map(allTasks.map(t => [t.id, t]));
+  container.querySelectorAll('.month-day-task-checkbox').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const t = taskById.get(parseInt(cb.dataset.id));
+      if (!t) return;
+      t.completed = cb.checked;
+      await DB.updateGoalTask(t);
+      await loadMonthlyView();
+    });
+  });
 
   // テキスト値をJSで設定（HTMLエンティティの問題を回避）
   container.querySelectorAll('.month-note').forEach(ta => {
@@ -404,10 +442,21 @@ async function loadYearlyView() {
   const pad = n => String(n).padStart(2, '0');
   const keys = Array.from({ length: 12 }, (_, m) => `${year}-${pad(m + 1)}`);
 
-  const [allStarred, ...monthlyNotes] = await Promise.all([
+  const [allStarred, allTasks, allProjects, allGoals, ...monthlyNotes] = await Promise.all([
     DB.getStarredDaysForYear(year),
+    DB.getAllGoalTasks(), DB.getAllProjects(), DB.getGoals(),
     ...keys.map(k => DB.getMonthly(k))
   ]);
+
+  const projectMap = new Map(allProjects.map(p => [p.id, p]));
+  const goalMap = new Map(allGoals.map(g => [g.id, g]));
+  const tasksByMonth = {};
+  allTasks.forEach(t => {
+    if (!t.dueDate) return;
+    const mk = t.dueDate.slice(0, 7);
+    (tasksByMonth[mk] = tasksByMonth[mk] || []).push(t);
+  });
+  Object.values(tasksByMonth).forEach(list => list.sort((a, b) => a.dueDate.localeCompare(b.dueDate)));
 
   const starredByMonth = {};
   allStarred.forEach(e => {
@@ -416,6 +465,24 @@ async function loadYearlyView() {
   });
 
   const monthlyByKey = Object.fromEntries(keys.map((k, i) => [k, monthlyNotes[i]]));
+
+  const renderMonthTasks = key => {
+    const tasks = tasksByMonth[key];
+    if (!tasks || !tasks.length) return '';
+    return `<div class="year-month-tasks">
+      ${tasks.map(t => {
+        const project = projectMap.get(t.projectId);
+        const goal = project ? goalMap.get(project.goalId) : null;
+        const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
+        const day = parseInt(t.dueDate.slice(-2));
+        return `<div class="year-month-task${t.completed ? ' completed' : ''}" data-id="${t.id}">
+          <input type="checkbox" class="year-month-task-checkbox" data-id="${t.id}"${t.completed ? ' checked' : ''}>
+          <span class="year-month-task-date">${day}日</span>
+          <span class="year-month-task-text">${escapeHtml(t.text || '')}${label ? ` <small>（${escapeHtml(label)}）</small>` : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  };
 
   let html = '';
   keys.forEach((key, m) => {
@@ -437,11 +504,24 @@ async function loadYearlyView() {
       <div class="year-month">
         <div class="year-month-title">${m + 1}月</div>
         <textarea class="year-note" data-key="${key}" placeholder="${m + 1}月のメモ..." rows="2"></textarea>
+        ${renderMonthTasks(key)}
         ${starHtml}
       </div>`;
   });
 
   container.innerHTML = html;
+
+  // 期限タスクのチェックボックス
+  const taskById = new Map(allTasks.map(t => [t.id, t]));
+  container.querySelectorAll('.year-month-task-checkbox').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const t = taskById.get(parseInt(cb.dataset.id));
+      if (!t) return;
+      t.completed = cb.checked;
+      await DB.updateGoalTask(t);
+      await loadYearlyView();
+    });
+  });
 
   // 月別ノート値をJSで設定
   container.querySelectorAll('.year-note').forEach(ta => {
