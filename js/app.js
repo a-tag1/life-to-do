@@ -32,32 +32,94 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
-/* --- ドラッグ並び替え（ポインターイベント / タッチ対応） --- */
+/* --- ドラッグ並び替え（ポインターイベント / タッチ対応） ---
+   ドラッグ中アイテムは指の位置に追従（transform）、他アイテムはFLIPでスライド移動させ、
+   端付近ではオートスクロールも行うことで滑らかな並び替えを実現する。 */
 function enableDragReorder(container, itemSelector, handleSelector, onReorder) {
+  const SIBLING_TRANSITION = 'transform 0.18s ease';
+  const AUTOSCROLL_MARGIN = 56;
+  const AUTOSCROLL_SPEED = 14;
+
   container.querySelectorAll(handleSelector).forEach(handle => {
     const item = handle.closest(itemSelector);
     if (!item) return;
     handle.addEventListener('pointerdown', e => {
       e.preventDefault();
       const pid = e.pointerId;
+      const scrollParent = container.closest('.view') || container;
+      const grabOffsetY = e.clientY - item.getBoundingClientRect().top;
+
       item.classList.add('dragging');
+      item.style.willChange = 'transform';
+      item.style.zIndex = '30';
+      item.style.pointerEvents = 'none';
       handle.setPointerCapture(pid);
 
-      const onMove = ev => {
-        const y = ev.clientY;
-        const siblings = [...container.querySelectorAll(itemSelector)].filter(el => el !== item);
-        let target = null;
-        for (const sib of siblings) {
-          const rect = sib.getBoundingClientRect();
-          if (y < rect.top + rect.height / 2) { target = sib; break; }
+      let lastY = e.clientY;
+      let scrollDir = 0;
+      let scrollRafId = null;
+
+      const others = () => [...container.querySelectorAll(itemSelector)].filter(el => el !== item);
+
+      const update = () => {
+        item.style.transform = 'none';
+        const rect = item.getBoundingClientRect();
+        const dy = lastY - grabOffsetY - rect.top;
+        item.style.transform = `translateY(${dy}px)`;
+
+        const virtualCenter = rect.top + dy + rect.height / 2;
+        for (const sib of others()) {
+          const sRect = sib.getBoundingClientRect();
+          const sCenter = sRect.top + sRect.height / 2;
+          const sibIsAfter = !!(item.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING);
+          const shouldSwap = sibIsAfter ? virtualCenter > sCenter : virtualCenter < sCenter;
+          if (!shouldSwap) continue;
+
+          const sibsBefore = new Map(others().map(el => [el, el.getBoundingClientRect()]));
+          if (sibIsAfter) container.insertBefore(item, sib.nextSibling);
+          else container.insertBefore(item, sib);
+
+          sibsBefore.forEach((beforeRect, el) => {
+            const afterRect = el.getBoundingClientRect();
+            const diff = beforeRect.top - afterRect.top;
+            if (!diff) return;
+            el.style.transition = 'none';
+            el.style.transform = `translateY(${diff}px)`;
+            requestAnimationFrame(() => {
+              el.style.transition = SIBLING_TRANSITION;
+              el.style.transform = '';
+            });
+          });
+          break;
         }
-        if (target) container.insertBefore(item, target);
-        else container.appendChild(item);
+      };
+
+      const autoScrollTick = () => {
+        if (!scrollDir) { scrollRafId = null; return; }
+        scrollParent.scrollTop += scrollDir * AUTOSCROLL_SPEED;
+        update();
+        scrollRafId = requestAnimationFrame(autoScrollTick);
+      };
+
+      const onMove = ev => {
+        lastY = ev.clientY;
+        update();
+        const pRect = scrollParent.getBoundingClientRect();
+        if (lastY < pRect.top + AUTOSCROLL_MARGIN) scrollDir = -1;
+        else if (lastY > pRect.bottom - AUTOSCROLL_MARGIN) scrollDir = 1;
+        else scrollDir = 0;
+        if (scrollDir && !scrollRafId) scrollRafId = requestAnimationFrame(autoScrollTick);
       };
       const onUp = () => {
         handle.releasePointerCapture(pid);
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
+        scrollDir = 0;
+        if (scrollRafId) cancelAnimationFrame(scrollRafId);
+        item.style.transform = '';
+        item.style.willChange = '';
+        item.style.zIndex = '';
+        item.style.pointerEvents = '';
         item.classList.remove('dragging');
         const ids = [...container.querySelectorAll(itemSelector)].map(el => el.dataset.id);
         onReorder(ids);
