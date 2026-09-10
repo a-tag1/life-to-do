@@ -1,12 +1,13 @@
 'use strict';
 
-const CACHE_NAME = 'life-todo-v2';
+const CACHE_NAME = 'life-todo-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './css/style.css',
   './js/db.js',
+  './js/supabase-sync.js',
   './js/app.js',
   './icons/icon.svg'
 ];

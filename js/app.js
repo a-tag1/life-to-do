@@ -1217,8 +1217,145 @@ function initSettingsView() {
   });
   document.getElementById('import-json-input').addEventListener('change', importJson);
   document.getElementById('btn-share').addEventListener('click', shareData);
+  document.getElementById('btn-supabase-save').addEventListener('click', saveSupabaseConfig);
+  document.getElementById('btn-supabase-signup').addEventListener('click', signUpSupabase);
+  document.getElementById('btn-supabase-login').addEventListener('click', signInSupabase);
+  document.getElementById('btn-supabase-google').addEventListener('click', signInSupabaseWithGoogle);
+  document.getElementById('btn-supabase-logout').addEventListener('click', signOutSupabase);
+  document.getElementById('btn-supabase-sync').addEventListener('click', syncSupabaseNow);
   document.getElementById('btn-google-drive').addEventListener('click', connectGoogleDrive);
   document.getElementById('btn-google-drive-sync').addEventListener('click', syncToGoogleDrive);
+}
+
+function updateSupabaseStatus(message, isError = false) {
+  const el = document.getElementById('supabase-status');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle('error', isError);
+}
+
+function supabaseCredentials() {
+  return {
+    url: document.getElementById('supabase-url-input').value.trim(),
+    key: document.getElementById('supabase-key-input').value.trim()
+  };
+}
+
+async function configureSupabase(showMessage = true) {
+  const { url, key } = supabaseCredentials();
+  if (!url || !key) {
+    if (showMessage) updateSupabaseStatus('Project URLと公開キーを入力してください', true);
+    return false;
+  }
+  const configured = await SupabaseSync.configure(url, key);
+  if (!configured) {
+    updateSupabaseStatus('Supabase SDKを読み込めませんでした', true);
+    return false;
+  }
+  SupabaseSync.setChangeHandler((user, error) => {
+    if (error) updateSupabaseStatus(`同期に失敗しました: ${error.message}`, true);
+    else updateSupabaseAuthUI(user);
+  });
+  updateSupabaseAuthUI(SupabaseSync.getUser());
+  return true;
+}
+
+function updateSupabaseAuthUI(user) {
+  const loggedIn = Boolean(user);
+  document.getElementById('btn-supabase-logout').hidden = !loggedIn;
+  document.getElementById('btn-supabase-sync').disabled = !loggedIn;
+  if (loggedIn) updateSupabaseStatus(`${user.email || 'Googleアカウント'}でログイン中`);
+}
+
+async function saveSupabaseConfig() {
+  const { url, key } = supabaseCredentials();
+  if (!url || !key) {
+    updateSupabaseStatus('Project URLと公開キーを入力してください', true);
+    return;
+  }
+  await DB.saveSetting('supabaseUrl', url);
+  await DB.saveSetting('supabaseKey', key);
+  if (await configureSupabase()) updateSupabaseStatus('Supabase設定を保存しました');
+}
+
+function supabaseAuthValues() {
+  return {
+    email: document.getElementById('supabase-email-input').value.trim(),
+    password: document.getElementById('supabase-password-input').value
+  };
+}
+
+async function signUpSupabase() {
+  try {
+    if (!await configureSupabase()) return;
+    const { email, password } = supabaseAuthValues();
+    if (!email || !password) throw new Error('メールアドレスとパスワードを入力してください');
+    const { error } = await SupabaseSync.signUp(email, password);
+    if (error) throw error;
+    updateSupabaseStatus('確認メールを送信しました。メール内のリンクを開いてください');
+  } catch (error) {
+    updateSupabaseStatus(`登録に失敗しました: ${error.message}`, true);
+  }
+}
+
+async function signInSupabase() {
+  try {
+    if (!await configureSupabase()) return;
+    const { email, password } = supabaseAuthValues();
+    if (!email || !password) throw new Error('メールアドレスとパスワードを入力してください');
+    const { error } = await SupabaseSync.signIn(email, password);
+    if (error) throw error;
+    await finishSupabaseSignIn();
+  } catch (error) {
+    updateSupabaseStatus(`ログインに失敗しました: ${error.message}`, true);
+  }
+}
+
+async function signInSupabaseWithGoogle() {
+  try {
+    if (!await configureSupabase()) return;
+    const { error } = await SupabaseSync.signInWithGoogle();
+    if (error) throw error;
+  } catch (error) {
+    updateSupabaseStatus(`Googleログインに失敗しました: ${error.message}`, true);
+  }
+}
+
+async function finishSupabaseSignIn() {
+  try {
+    const result = await SupabaseSync.pullOrPushInitial();
+    if (result?.type === 'pulled') {
+      state.templates = await DB.getTemplates();
+      applyDarkMode(await DB.getSetting('darkMode', 'system'));
+      navigate(state.view);
+      updateSupabaseStatus('クラウドのデータを読み込みました');
+    } else if (result?.type === 'cancelled') {
+      updateSupabaseStatus('初回同期をキャンセルしました。端末データは変更していません');
+    } else {
+      updateSupabaseStatus('ログインしました');
+    }
+  } catch (error) {
+    updateSupabaseStatus(`初回同期に失敗しました: ${error.message}`, true);
+  }
+}
+
+async function signOutSupabase() {
+  try {
+    await SupabaseSync.signOut();
+    updateSupabaseAuthUI(null);
+    updateSupabaseStatus('ログアウトしました');
+  } catch (error) {
+    updateSupabaseStatus(`ログアウトに失敗しました: ${error.message}`, true);
+  }
+}
+
+async function syncSupabaseNow() {
+  try {
+    await SupabaseSync.push();
+    updateSupabaseStatus('同期しました');
+  } catch (error) {
+    updateSupabaseStatus(`同期に失敗しました: ${error.message}`, true);
+  }
 }
 
 function updateGoogleDriveStatus(message) {
@@ -1404,6 +1541,7 @@ function enableGoogleDriveAutoSync() {
     DB[name] = async (...args) => {
       const result = await original(...args);
       scheduleGoogleDriveSync();
+      SupabaseSync.schedulePush();
       return result;
     };
   });
@@ -1569,7 +1707,12 @@ async function init() {
   applyDarkMode(await DB.getSetting('darkMode', 'system'));
 
   document.getElementById('google-client-id-input').value = await DB.getSetting('googleClientId', '');
+  document.getElementById('supabase-url-input').value = await DB.getSetting('supabaseUrl', '');
+  document.getElementById('supabase-key-input').value = await DB.getSetting('supabaseKey', '');
   enableGoogleDriveAutoSync();
+
+  await configureSupabase(false);
+  if (SupabaseSync.getUser()) await finishSupabaseSignIn();
 
   // テンプレート読み込み
   state.templates = await DB.getTemplates();

@@ -166,6 +166,33 @@
         </div>
 
         <div class="settings-section">
+          <div class="section-title">Supabase 同期</div>
+          <div class="settings-row">
+            <label for="supabase-url-input">Project URL</label>
+            <input id="supabase-url-input" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off">
+          </div>
+          <div class="settings-row">
+            <label for="supabase-key-input">公開キー</label>
+            <input id="supabase-key-input" type="text" placeholder="anon / publishable key" autocomplete="off">
+          </div>
+          <button id="btn-supabase-save" class="btn-secondary">Supabase設定を保存</button>
+          <div class="settings-row">
+            <label for="supabase-email-input">メールアドレス</label>
+            <input id="supabase-email-input" type="email" autocomplete="email">
+          </div>
+          <div class="settings-row">
+            <label for="supabase-password-input">パスワード</label>
+            <input id="supabase-password-input" type="password" autocomplete="current-password">
+          </div>
+          <button id="btn-supabase-signup" class="btn-secondary">メール登録</button>
+          <button id="btn-supabase-login" class="btn-primary">メールでログイン</button>
+          <button id="btn-supabase-google" class="btn-secondary">Googleでログイン</button>
+          <button id="btn-supabase-logout" class="btn-secondary" hidden>ログアウト</button>
+          <button id="btn-supabase-sync" class="btn-secondary" disabled>今すぐ同期</button>
+          <div id="supabase-status" class="storage-status"></div>
+        </div>
+
+        <div class="settings-section">
           <div class="section-title">Google Drive 同期</div>
           <div class="settings-row">
             <label for="google-client-id-input">OAuth クライアント ID</label>
@@ -179,7 +206,7 @@
 
         <div class="app-version">
           <span>LifeToDo</span>
-          <span><span id="version-number">v1.2.4</span> &nbsp;·&nbsp; <span id="version-date">2026/9/9</span></span>
+          <span><span id="version-number">v1.3.0</span> &nbsp;·&nbsp; <span id="version-date">2026/9/10</span></span>
         </div>
 
       </div>
@@ -279,6 +306,8 @@
 </div>
 
 <script src="js/db.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-sync.js"></script>
 <script src="js/app.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
