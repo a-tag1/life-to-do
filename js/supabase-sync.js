@@ -7,6 +7,7 @@ const SupabaseSync = (() => {
   let restoring = false;
   let initialized = false;
   let onChange = () => {};
+  let onSync = () => {};
 
   function isConfigured() {
     return Boolean(client);
@@ -91,6 +92,7 @@ const SupabaseSync = (() => {
       updated_at: new Date().toISOString()
     });
     if (error) throw error;
+    onSync(new Date());
   }
 
   function schedulePush() {
@@ -107,9 +109,13 @@ const SupabaseSync = (() => {
     onChange = handler;
   }
 
+  function setSyncHandler(handler) {
+    onSync = handler;
+  }
+
   return {
     configure, signUp, signIn, signInWithGoogle, signOut,
-    pullOrPushInitial, push, schedulePush, setChangeHandler,
+    pullOrPushInitial, push, schedulePush, setChangeHandler, setSyncHandler,
     isConfigured: () => isConfigured(),
     isInitialized: () => initialized,
     getUser: () => user

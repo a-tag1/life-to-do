@@ -189,6 +189,11 @@
           <button id="btn-supabase-google" class="btn-secondary">Googleでログイン</button>
           <button id="btn-supabase-logout" class="btn-secondary" hidden>ログアウト</button>
           <button id="btn-supabase-sync" class="btn-secondary" disabled>今すぐ同期</button>
+          <div class="sync-indicator" aria-live="polite">
+            <div>認証状態: <strong id="supabase-auth-state">未設定</strong></div>
+            <div>同期状態: <strong id="supabase-sync-state">未同期</strong></div>
+            <div>最終同期: <span id="supabase-last-sync">--</span></div>
+          </div>
           <div id="supabase-status" class="storage-status"></div>
         </div>
 
@@ -206,7 +211,7 @@
 
         <div class="app-version">
           <span>LifeToDo</span>
-          <span><span id="version-number">v1.3.0</span> &nbsp;·&nbsp; <span id="version-date">2026/9/10</span></span>
+          <span><span id="version-number">v1.3.1</span> &nbsp;·&nbsp; <span id="version-date">2026/9/10</span></span>
         </div>
 
       </div>

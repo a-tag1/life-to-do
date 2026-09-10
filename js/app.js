@@ -1179,6 +1179,9 @@ function renderTemplateList() {
 
 function initSettingsView() {
   const textInput = document.getElementById('template-text-input');
+  const supabaseUrlInput = document.getElementById('supabase-url-input');
+  const supabaseKeyInput = document.getElementById('supabase-key-input');
+  const supabaseEmailInput = document.getElementById('supabase-email-input');
 
   // Cmd/Ctrl+Enter で追加
   textInput.addEventListener('keydown', e => {
@@ -1223,6 +1226,9 @@ function initSettingsView() {
   document.getElementById('btn-supabase-google').addEventListener('click', signInSupabaseWithGoogle);
   document.getElementById('btn-supabase-logout').addEventListener('click', signOutSupabase);
   document.getElementById('btn-supabase-sync').addEventListener('click', syncSupabaseNow);
+  supabaseUrlInput.addEventListener('change', () => DB.saveSetting('supabaseUrl', supabaseUrlInput.value.trim()));
+  supabaseKeyInput.addEventListener('change', () => DB.saveSetting('supabaseKey', supabaseKeyInput.value.trim()));
+  supabaseEmailInput.addEventListener('change', () => DB.saveSetting('supabaseEmail', supabaseEmailInput.value.trim()));
   document.getElementById('btn-google-drive').addEventListener('click', connectGoogleDrive);
   document.getElementById('btn-google-drive-sync').addEventListener('click', syncToGoogleDrive);
 }
@@ -1232,6 +1238,19 @@ function updateSupabaseStatus(message, isError = false) {
   if (!el) return;
   el.textContent = message;
   el.classList.toggle('error', isError);
+}
+
+function updateSupabaseSyncState(label, state = '') {
+  const el = document.getElementById('supabase-sync-state');
+  if (!el) return;
+  el.textContent = label;
+  if (state) el.dataset.state = state;
+  else delete el.dataset.state;
+}
+
+function updateSupabaseLastSync(date) {
+  const el = document.getElementById('supabase-last-sync');
+  if (el) el.textContent = date.toLocaleString('ja-JP');
 }
 
 function supabaseCredentials() {
@@ -1244,6 +1263,7 @@ function supabaseCredentials() {
 async function configureSupabase(showMessage = true) {
   const { url, key } = supabaseCredentials();
   if (!url || !key) {
+    updateSupabaseSyncState('未設定');
     if (showMessage) updateSupabaseStatus('Project URLと公開キーを入力してください', true);
     return false;
   }
@@ -1253,8 +1273,15 @@ async function configureSupabase(showMessage = true) {
     return false;
   }
   SupabaseSync.setChangeHandler((user, error) => {
-    if (error) updateSupabaseStatus(`同期に失敗しました: ${error.message}`, true);
+    if (error) {
+      updateSupabaseSyncState('エラー', 'error');
+      updateSupabaseStatus(`同期に失敗しました: ${error.message}`, true);
+    }
     else updateSupabaseAuthUI(user);
+  });
+  SupabaseSync.setSyncHandler(date => {
+    updateSupabaseSyncState('同期済み', 'success');
+    updateSupabaseLastSync(date);
   });
   updateSupabaseAuthUI(SupabaseSync.getUser());
   return true;
@@ -1262,9 +1289,12 @@ async function configureSupabase(showMessage = true) {
 
 function updateSupabaseAuthUI(user) {
   const loggedIn = Boolean(user);
+  const authState = document.getElementById('supabase-auth-state');
+  if (authState) authState.textContent = loggedIn ? `ログイン中（${user.email || 'Google'}）` : '未ログイン';
   document.getElementById('btn-supabase-logout').hidden = !loggedIn;
   document.getElementById('btn-supabase-sync').disabled = !loggedIn;
   if (loggedIn) updateSupabaseStatus(`${user.email || 'Googleアカウント'}でログイン中`);
+  else if (SupabaseSync.isConfigured()) updateSupabaseSyncState('未同期');
 }
 
 async function saveSupabaseConfig() {
@@ -1285,11 +1315,16 @@ function supabaseAuthValues() {
   };
 }
 
+async function saveSupabaseEmail(email) {
+  await DB.saveSetting('supabaseEmail', email);
+}
+
 async function signUpSupabase() {
   try {
     if (!await configureSupabase()) return;
     const { email, password } = supabaseAuthValues();
     if (!email || !password) throw new Error('メールアドレスとパスワードを入力してください');
+    await saveSupabaseEmail(email);
     const { error } = await SupabaseSync.signUp(email, password);
     if (error) throw error;
     updateSupabaseStatus('確認メールを送信しました。メール内のリンクを開いてください');
@@ -1303,6 +1338,7 @@ async function signInSupabase() {
     if (!await configureSupabase()) return;
     const { email, password } = supabaseAuthValues();
     if (!email || !password) throw new Error('メールアドレスとパスワードを入力してください');
+    await saveSupabaseEmail(email);
     const { error } = await SupabaseSync.signIn(email, password);
     if (error) throw error;
     await finishSupabaseSignIn();
@@ -1323,18 +1359,23 @@ async function signInSupabaseWithGoogle() {
 
 async function finishSupabaseSignIn() {
   try {
+    updateSupabaseSyncState('確認中');
     const result = await SupabaseSync.pullOrPushInitial();
     if (result?.type === 'pulled') {
       state.templates = await DB.getTemplates();
       applyDarkMode(await DB.getSetting('darkMode', 'system'));
       navigate(state.view);
+      updateSupabaseSyncState('取得済み', 'success');
+      updateSupabaseLastSync(new Date());
       updateSupabaseStatus('クラウドのデータを読み込みました');
     } else if (result?.type === 'cancelled') {
       updateSupabaseStatus('初回同期をキャンセルしました。端末データは変更していません');
     } else {
+      updateSupabaseSyncState(result?.type === 'pushed' ? '同期済み' : '未同期', result?.type === 'pushed' ? 'success' : '');
       updateSupabaseStatus('ログインしました');
     }
   } catch (error) {
+    updateSupabaseSyncState('エラー', 'error');
     updateSupabaseStatus(`初回同期に失敗しました: ${error.message}`, true);
   }
 }
@@ -1351,9 +1392,13 @@ async function signOutSupabase() {
 
 async function syncSupabaseNow() {
   try {
+    updateSupabaseSyncState('同期中');
     await SupabaseSync.push();
+    updateSupabaseSyncState('同期済み', 'success');
+    updateSupabaseLastSync(new Date());
     updateSupabaseStatus('同期しました');
   } catch (error) {
+    updateSupabaseSyncState('エラー', 'error');
     updateSupabaseStatus(`同期に失敗しました: ${error.message}`, true);
   }
 }
@@ -1709,6 +1754,7 @@ async function init() {
   document.getElementById('google-client-id-input').value = await DB.getSetting('googleClientId', '');
   document.getElementById('supabase-url-input').value = await DB.getSetting('supabaseUrl', '');
   document.getElementById('supabase-key-input').value = await DB.getSetting('supabaseKey', '');
+  document.getElementById('supabase-email-input').value = await DB.getSetting('supabaseEmail', '');
   enableGoogleDriveAutoSync();
 
   await configureSupabase(false);
