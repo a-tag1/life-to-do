@@ -187,7 +187,9 @@ const state = {
   tmplTarget: null,
   templates: [],
   categories: [],
-  currentGoalId: null
+  currentGoalId: null,
+  currentProjectId: null,
+  visionTab: 'goals'
 };
 
 const cloudSync = {
@@ -651,7 +653,15 @@ async function loadYearlyView() {
    ビジョンビュー（ダッシュボード）
    ============================================================ */
 async function loadVisionView() {
-  await renderGoalList();
+  document.querySelectorAll('.vision-tab').forEach(tab => {
+    const active = tab.dataset.visionTab === state.visionTab;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
+  document.getElementById('goal-list').hidden = state.visionTab !== 'goals';
+  document.getElementById('project-overview').hidden = state.visionTab !== 'projects';
+  if (state.visionTab === 'projects') await renderProjectOverview();
+  else await renderGoalList();
   updateHeader();
 }
 
@@ -750,6 +760,22 @@ function initVisionView() {
   const titleInput = document.getElementById('goal-title-input');
   const noteInput = document.getElementById('goal-note-input');
 
+  document.querySelectorAll('.vision-tab').forEach(tab => tab.addEventListener('click', async () => {
+    state.visionTab = tab.dataset.visionTab;
+    document.querySelectorAll('.vision-tab').forEach(item => {
+      const active = item === tab;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
+    });
+    document.getElementById('goal-list').hidden = state.visionTab !== 'goals';
+    document.getElementById('project-overview').hidden = state.visionTab !== 'projects';
+    if (state.visionTab === 'projects') await renderProjectOverview();
+    else await renderGoalList();
+  }));
+
+  document.getElementById('project-category-filter').addEventListener('change', renderProjectOverview);
+  document.getElementById('project-status-filter').addEventListener('change', renderProjectOverview);
+
   titleInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-save-goal').click(); }
   });
@@ -760,7 +786,8 @@ function initVisionView() {
     const categoryId = parseInt(document.getElementById('goal-category-select').value) || null;
     await DB.addGoal({ title, note: noteInput.value.trim(), categoryId, createdAt: Date.now(), order: Date.now(), completed: false });
     closeGoalModal();
-    await renderGoalList();
+    if (state.visionTab === 'projects') await renderProjectOverview();
+    else await renderGoalList();
   });
 }
 
@@ -775,6 +802,65 @@ async function openGoalModal() {
 
 function closeGoalModal() {
   document.getElementById('goal-modal').classList.add('hidden');
+}
+
+async function renderProjectOverview() {
+  const container = document.getElementById('project-overview-list');
+  const categoryFilter = document.getElementById('project-category-filter');
+  const statusFilter = document.getElementById('project-status-filter');
+  const [projects, goals, categories, tasks] = await Promise.all([
+    DB.getAllProjects(), DB.getGoals(), DB.getCategories(), DB.getAllGoalTasks()
+  ]);
+  const goalMap = new Map(goals.map(goal => [goal.id, goal]));
+  const categoryMap = new Map(categories.map(category => [category.id, category]));
+  const tasksByProject = new Map(projects.map(project => [project.id, []]));
+  tasks.forEach(task => tasksByProject.get(task.projectId)?.push(task));
+
+  const selectedCategory = categoryFilter.value;
+  categoryFilter.innerHTML = `<option value="">すべてのカテゴリ</option>${categories.map(category =>
+    `<option value="${category.id}">${escapeHtml(category.name)}</option>`
+  ).join('')}`;
+  categoryFilter.value = selectedCategory;
+
+  const today = formatDate(new Date());
+  const rows = projects.map(project => {
+    const goal = goalMap.get(project.goalId);
+    const category = categoryMap.get(goal?.categoryId);
+    const projectTasks = tasksByProject.get(project.id) || [];
+    const unfinished = projectTasks.filter(task => !task.completed);
+    const nextDue = unfinished.map(task => task.dueDate).filter(Boolean).sort()[0] || '';
+    return { project, goal, category, projectTasks, unfinished, nextDue };
+  }).filter(row => {
+    if (selectedCategory && String(row.category?.id) !== selectedCategory) return false;
+    if (statusFilter.value === 'active') return !row.project.completed;
+    if (statusFilter.value === 'completed') return row.project.completed;
+    return true;
+  }).sort((a, b) => {
+    if (a.project.completed !== b.project.completed) return a.project.completed ? 1 : -1;
+    const dueA = a.nextDue || '9999-12-31';
+    const dueB = b.nextDue || '9999-12-31';
+    if (dueA !== dueB) return dueA.localeCompare(dueB);
+    return (a.project.order ?? 0) - (b.project.order ?? 0);
+  });
+
+  container.innerHTML = rows.length ? rows.map(({ project, goal, category, projectTasks, unfinished, nextDue }) => {
+    const done = projectTasks.length - unfinished.length;
+    const percent = projectTasks.length ? Math.round(done / projectTasks.length * 100) : 0;
+    const dueLabel = nextDue ? (nextDue < today ? `期限超過: ${nextDue}` : `次の期限: ${nextDue}`) : '期限なし';
+    return `
+      <button class="project-overview-item${project.completed ? ' completed-item' : ''}${category ? ' has-category' : ''}" type="button" data-project-id="${project.id}" data-goal-id="${project.goalId}"${categoryStyle(category)}>
+        <span class="project-overview-title">${escapeHtml(project.title || '名称未設定のプロジェクト')}</span>
+        <span class="project-overview-goal">${escapeHtml(goal?.title || 'ビジョンなし')}</span>
+        <span class="project-overview-meta">${category ? `${escapeHtml(category.name)} ・ ` : ''}${done}/${projectTasks.length} タスク ・ ${dueLabel}</span>
+        <span class="project-overview-progress"><span style="width:${percent}%"></span></span>
+      </button>`;
+  }).join('') : '<div class="empty-state" style="padding:28px 0">該当するプロジェクトはありません</div>';
+
+  container.querySelectorAll('.project-overview-item').forEach(item => item.addEventListener('click', () => {
+    state.currentGoalId = parseInt(item.dataset.goalId);
+    state.currentProjectId = parseInt(item.dataset.projectId);
+    navigate('goal-detail');
+  }));
 }
 
 /* ============================================================
@@ -1026,6 +1112,15 @@ async function renderProjectList() {
       await persistReorder(tasksForThis, ids, DB.updateGoalTask);
     });
   });
+
+  if (state.currentProjectId) {
+    const target = container.querySelector(`.project-accordion[data-id="${state.currentProjectId}"]`);
+    state.currentProjectId = null;
+    if (target) {
+      target.classList.add('open');
+      setTimeout(() => target.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80);
+    }
+  }
 }
 
 async function renderTaskList() {

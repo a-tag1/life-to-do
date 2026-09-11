@@ -80,8 +80,25 @@
 
     <!-- [4] ビジョンビュー（ダッシュボード） -->
     <section id="view-vision" class="view">
-      <div id="goal-list" class="view-content goal-list-content">
-        <!-- Goal cards rendered by JS -->
+      <div class="view-content goal-list-content">
+        <div class="vision-tabs" role="tablist" aria-label="ビジョン表示">
+          <button class="vision-tab active" type="button" data-vision-tab="goals" role="tab" aria-selected="true">ビジョン</button>
+          <button class="vision-tab" type="button" data-vision-tab="projects" role="tab" aria-selected="false">プロジェクト</button>
+        </div>
+        <div id="goal-list">
+          <!-- Goal cards rendered by JS -->
+        </div>
+        <div id="project-overview" hidden>
+          <div class="project-overview-filters">
+            <select id="project-category-filter" aria-label="カテゴリで絞り込み"></select>
+            <select id="project-status-filter" aria-label="状態で絞り込み">
+              <option value="active">未完了のみ</option>
+              <option value="all">すべて</option>
+              <option value="completed">完了のみ</option>
+            </select>
+          </div>
+          <div id="project-overview-list"></div>
+        </div>
       </div>
     </section>
 
@@ -227,7 +244,7 @@
 
         <div class="app-version">
           <span>LifeToDo</span>
-          <span><span id="version-number">v1.4.0</span> &nbsp;·&nbsp; <span id="version-date">2026/9/11</span></span>
+          <span><span id="version-number">v1.5.0</span> &nbsp;·&nbsp; <span id="version-date">2026/9/11</span></span>
         </div>
 
       </div>
