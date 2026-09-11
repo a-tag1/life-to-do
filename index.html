@@ -95,6 +95,9 @@
             placeholder="理想像の名称を入力..."
             maxlength="60"
           >
+          <select id="goal-detail-category-select" class="goal-category-select" aria-label="カテゴリ">
+            <option value="">カテゴリなし</option>
+          </select>
         </div>
         <div class="goal-detail-note-card">
           <div class="section-title">モチベーション</div>
@@ -133,6 +136,19 @@
             <input id="template-label-input" type="text" placeholder="表示名（例: 読書）">
             <textarea id="template-text-input" class="template-text-input" rows="3" placeholder="挿入テキスト（例: 読書：&#10;例: Cmd+Enterで追加）"></textarea>
             <button id="btn-add-template" class="btn-primary">追加</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-title">カテゴリ</div>
+          <div id="category-list"></div>
+          <div class="category-add-form">
+            <input id="category-name-input" type="text" placeholder="カテゴリ名（例: 健康）" maxlength="30">
+            <div class="category-color-row">
+              <label for="category-color-input">テーマ色</label>
+              <input id="category-color-input" type="color" value="#007AFF" aria-label="テーマ色">
+              <button id="btn-add-category" class="btn-primary" type="button">追加</button>
+            </div>
           </div>
         </div>
 
@@ -302,6 +318,9 @@
       </div>
       <div class="modal-form">
         <input id="goal-title-input" type="text" placeholder="例）英語をペラペラ話せる自分" maxlength="60">
+        <select id="goal-category-select" aria-label="カテゴリ">
+          <option value="">カテゴリなし</option>
+        </select>
         <textarea id="goal-note-input" class="modal-note-input" placeholder="なぜなりたいのか（任意）" rows="3"></textarea>
         <button id="btn-save-goal" class="btn-primary">追加する</button>
       </div>

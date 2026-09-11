@@ -4,7 +4,7 @@
    IndexedDB ラッパー
    ============================================================ */
 const DB_NAME = 'life-todo-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let _db = null;
 
@@ -36,6 +36,8 @@ function openDB() {
         const ts = d.createObjectStore('goal_tasks', { keyPath: 'id', autoIncrement: true });
         ts.createIndex('projectId', 'projectId', { unique: false });
       }
+      if (!d.objectStoreNames.contains('categories'))
+        d.createObjectStore('categories', { keyPath: 'id', autoIncrement: true });
     };
   });
 }
@@ -117,6 +119,12 @@ const DB = {
   addTemplate(tpl) { return _add('templates', tpl); },
   deleteTemplate(id) { return _del('templates', id); },
 
+  /* --- カテゴリ --- */
+  getCategories() { return _getAll('categories'); },
+  addCategory(category) { return _add('categories', category); },
+  updateCategory(category) { return _put('categories', category); },
+  deleteCategory(id) { return _del('categories', id); },
+
   /* --- 設定 --- */
   async getSetting(key, def = '') {
     const r = await _get('settings', key);
@@ -134,15 +142,15 @@ const DB = {
 
   /* --- 全データエクスポート --- */
   async exportAll() {
-    const [daily, monthly, vision, templates, settings, goals, projects, goalTasks] = await Promise.all([
+    const [daily, monthly, vision, templates, settings, goals, projects, goalTasks, categories] = await Promise.all([
       _getAll('daily'), _getAll('monthly'), this.getVision(), _getAll('templates'),
-      _getAll('settings'), _getAll('goals'), _getAll('projects'), _getAll('goal_tasks')
+      _getAll('settings'), _getAll('goals'), _getAll('projects'), _getAll('goal_tasks'), _getAll('categories')
     ]);
-    return { daily, monthly, vision, templates, settings, goals, projects, goalTasks };
+    return { daily, monthly, vision, templates, settings, goals, projects, goalTasks, categories };
   },
 
   async restoreAll(data) {
-    const stores = ['daily', 'monthly', 'vision', 'templates', 'settings', 'goals', 'projects', 'goal_tasks'];
+    const stores = ['daily', 'monthly', 'vision', 'templates', 'settings', 'goals', 'projects', 'goal_tasks', 'categories'];
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(stores, 'readwrite');
@@ -155,7 +163,7 @@ const DB = {
         daily: data.daily || [], monthly: data.monthly || [],
         vision: data.vision ? [data.vision] : [], templates: data.templates || [],
         settings: data.settings || [], goals: data.goals || [],
-        projects: data.projects || [], goal_tasks: data.goalTasks || []
+        projects: data.projects || [], goal_tasks: data.goalTasks || [], categories: data.categories || []
       };
       Object.entries(records).forEach(([store, values]) => {
         const objectStore = transaction.objectStore(store);

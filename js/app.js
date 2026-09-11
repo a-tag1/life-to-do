@@ -151,6 +151,20 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function categoryColor(color) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? color : '#007AFF';
+}
+
+function categoryStyle(category) {
+  return category ? ` style="--category-color:${categoryColor(category.color)}"` : '';
+}
+
+function categoryOptions(categories, selectedId) {
+  return `<option value="">カテゴリなし</option>${categories.map(category =>
+    `<option value="${category.id}"${category.id === selectedId ? ' selected' : ''}>${escapeHtml(category.name)}</option>`
+  ).join('')}`;
+}
+
 function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement('a'), { href: url, download: name });
@@ -172,6 +186,7 @@ const state = {
   yearDate: new Date(_today.getFullYear(), 0, 1),
   tmplTarget: null,
   templates: [],
+  categories: [],
   currentGoalId: null
 };
 
@@ -642,7 +657,9 @@ async function loadVisionView() {
 
 async function renderGoalList() {
   const container = document.getElementById('goal-list');
-  const goals = (await DB.getGoals()).sort((a, b) => {
+  const [storedGoals, categories] = await Promise.all([DB.getGoals(), DB.getCategories()]);
+  const categoryMap = new Map(categories.map(category => [category.id, category]));
+  const goals = storedGoals.sort((a, b) => {
     if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
     return (a.order ?? a.createdAt ?? 0) - (b.order ?? b.createdAt ?? 0);
   });
@@ -669,12 +686,13 @@ async function renderGoalList() {
     const pct = total ? Math.round(done / total * 100) : 0;
 
     return `
-      <div class="goal-card${goal.completed ? ' completed-item' : ''}" data-id="${goal.id}">
+      <div class="goal-card${goal.completed ? ' completed-item' : ''}${categoryMap.has(goal.categoryId) ? ' has-category' : ''}" data-id="${goal.id}"${categoryStyle(categoryMap.get(goal.categoryId))}>
         <span class="drag-handle goal-drag-handle" aria-label="並び替え">⠿</span>
         <input type="checkbox" class="goal-complete-checkbox" data-id="${goal.id}"${goal.completed ? ' checked' : ''} aria-label="完了">
         <div class="goal-card-body">
           <div class="goal-card-title">${escapeHtml(goal.title)}</div>
           <div class="goal-card-meta">
+            ${categoryMap.has(goal.categoryId) ? `<span class="goal-category-label">${escapeHtml(categoryMap.get(goal.categoryId).name)}</span>` : ''}
             <span class="goal-projects-count">${projects.length}件のプロジェクト</span>
             <span class="goal-task-count">${total ? `${done}/${total}タスク` : 'タスクなし'}</span>
           </div>
@@ -739,15 +757,18 @@ function initVisionView() {
   document.getElementById('btn-save-goal').addEventListener('click', async () => {
     const title = titleInput.value.trim();
     if (!title) { titleInput.focus(); return; }
-    await DB.addGoal({ title, note: noteInput.value.trim(), createdAt: Date.now(), order: Date.now(), completed: false });
+    const categoryId = parseInt(document.getElementById('goal-category-select').value) || null;
+    await DB.addGoal({ title, note: noteInput.value.trim(), categoryId, createdAt: Date.now(), order: Date.now(), completed: false });
     closeGoalModal();
     await renderGoalList();
   });
 }
 
-function openGoalModal() {
+async function openGoalModal() {
   document.getElementById('goal-title-input').value = '';
   document.getElementById('goal-note-input').value = '';
+  const select = document.getElementById('goal-category-select');
+  select.innerHTML = categoryOptions(await DB.getCategories());
   document.getElementById('goal-modal').classList.remove('hidden');
   setTimeout(() => document.getElementById('goal-title-input').focus(), 80);
 }
@@ -760,7 +781,7 @@ function closeGoalModal() {
    理想像詳細ビュー (Goal Detail)
    ============================================================ */
 async function loadGoalDetailView() {
-  const goal = await DB.getGoal(state.currentGoalId);
+  const [goal, categories] = await Promise.all([DB.getGoal(state.currentGoalId), DB.getCategories()]);
   if (!goal) { navigate('vision'); return; }
 
   document.getElementById('header-title').textContent = goal.title;
@@ -771,6 +792,7 @@ async function loadGoalDetailView() {
   const noteTA = document.getElementById('goal-note-textarea');
   noteTA.value = goal.note || '';
   autoResize(noteTA);
+  document.getElementById('goal-detail-category-select').innerHTML = categoryOptions(categories, goal.categoryId);
 
   await renderProjectList();
 }
@@ -795,6 +817,14 @@ function initGoalDetailView() {
   }, 500);
   noteTA.addEventListener('input', () => { autoResize(noteTA); _saveNote(noteTA.value); });
 
+  document.getElementById('goal-detail-category-select').addEventListener('change', async e => {
+    const goal = await DB.getGoal(state.currentGoalId);
+    if (!goal) return;
+    goal.categoryId = parseInt(e.target.value) || null;
+    await DB.updateGoal(goal);
+    await renderProjectList();
+  });
+
   document.getElementById('btn-add-project').addEventListener('click', async () => {
     if (!state.currentGoalId) return;
     const newId = await DB.addProject({ goalId: state.currentGoalId, title: '', order: Date.now(), completed: false });
@@ -810,6 +840,8 @@ function initGoalDetailView() {
 
 async function renderProjectList() {
   const container = document.getElementById('project-list');
+  const goal = await DB.getGoal(state.currentGoalId);
+  const category = goal?.categoryId ? (await DB.getCategories()).find(item => item.id === goal.categoryId) : null;
   const projects = (await DB.getProjectsForGoal(state.currentGoalId)).sort((a, b) => {
     if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
     return (a.order ?? 0) - (b.order ?? 0);
@@ -844,7 +876,7 @@ async function renderProjectList() {
         <div class="project-accordion-body">
           <div class="project-tasks" data-project-id="${project.id}">
             ${tasks.map(task => `
-              <div class="project-task-item" data-id="${task.id}">
+              <div class="project-task-item${category ? ' has-category' : ''}" data-id="${task.id}"${categoryStyle(category)}>
                 <span class="drag-handle project-task-drag-handle" aria-label="並び替え">⠿</span>
                 <input type="checkbox" class="project-task-checkbox" data-id="${task.id}"${task.completed ? ' checked' : ''}>
                 <div class="project-task-body">
@@ -998,11 +1030,12 @@ async function renderProjectList() {
 
 async function renderTaskList() {
   const container = document.getElementById('task-list');
-  const [tasks, projects, goals] = await Promise.all([
-    DB.getAllGoalTasks(), DB.getAllProjects(), DB.getGoals()
+  const [tasks, projects, goals, categories] = await Promise.all([
+    DB.getAllGoalTasks(), DB.getAllProjects(), DB.getGoals(), DB.getCategories()
   ]);
   const projectMap = new Map(projects.map(p => [p.id, p]));
   const goalMap = new Map(goals.map(g => [g.id, g]));
+  const categoryMap = new Map(categories.map(category => [category.id, category]));
 
   if (!tasks.length) {
     container.innerHTML = '<div class="empty-state"><span class="empty-state-icon">🎯</span>タスクはまだありません<br>ビジョンタブのプロジェクトからタスクを追加してください</div>';
@@ -1028,9 +1061,10 @@ async function renderTaskList() {
   const renderTask = t => {
     const project = projectMap.get(t.projectId);
     const goal = project ? goalMap.get(project.goalId) : null;
+    const category = categoryMap.get(goal?.categoryId);
     const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
     return `
-      <div class="task-item${t.completed ? ' completed-item' : ''}" data-id="${t.id}">
+      <div class="task-item${t.completed ? ' completed-item' : ''}${category ? ' has-category' : ''}" data-id="${t.id}"${categoryStyle(category)}>
         <input type="checkbox" class="task-checkbox" data-id="${t.id}"${t.completed ? ' checked' : ''}>
         <div class="task-body">
           ${label ? `<div class="task-source">${escapeHtml(label)}</div>` : ''}
@@ -1143,10 +1177,30 @@ function initTasksView() {
    ============================================================ */
 async function loadSettingsView() {
   await loadTemplateList();
+  await loadCategoryList();
   document.getElementById('habit-url-input').value = await DB.getSetting('habitAppUrl');
   document.getElementById('dark-mode-select').value = await DB.getSetting('darkMode', 'system');
   await checkStorageStatus();
   updateHeader();
+}
+
+async function loadCategoryList() {
+  state.categories = (await DB.getCategories()).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  const container = document.getElementById('category-list');
+  container.innerHTML = state.categories.length ? state.categories.map(category => `
+    <div class="category-item" data-id="${category.id}">
+      <span class="category-swatch" style="background:${categoryColor(category.color)}"></span>
+      <span class="category-name">${escapeHtml(category.name)}</span>
+      <button class="btn-delete btn-category-delete" data-id="${category.id}" aria-label="削除">×</button>
+    </div>`).join('') : '<div class="empty-state" style="padding:16px 0">カテゴリはまだありません</div>';
+  container.querySelectorAll('.btn-category-delete').forEach(btn => btn.addEventListener('click', async () => {
+    const id = parseInt(btn.dataset.id);
+    if (!confirm('このカテゴリを削除しますか？紐づく理想像はカテゴリなしになります。')) return;
+    const goals = await DB.getGoals();
+    await Promise.all(goals.filter(goal => goal.categoryId === id).map(goal => DB.updateGoal({ ...goal, categoryId: null })));
+    await DB.deleteCategory(id);
+    await loadCategoryList();
+  }));
 }
 
 async function loadTemplateList() {
@@ -1199,6 +1253,15 @@ function initSettingsView() {
     document.getElementById('template-label-input').value = '';
     textInput.value = '';
     await loadTemplateList();
+  });
+
+  document.getElementById('btn-add-category').addEventListener('click', async () => {
+    const nameInput = document.getElementById('category-name-input');
+    const name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); return; }
+    await DB.addCategory({ name, color: categoryColor(document.getElementById('category-color-input').value) });
+    nameInput.value = '';
+    await loadCategoryList();
   });
 
   document.getElementById('btn-save-habit-url').addEventListener('click', async () => {
@@ -1580,7 +1643,8 @@ function enableGoogleDriveAutoSync() {
   [
     'saveDaily', 'saveMonthly', 'saveVision', 'addTemplate', 'deleteTemplate',
     'saveSetting', 'addGoal', 'updateGoal', 'deleteGoal', 'addProject',
-    'updateProject', 'deleteProject', 'addGoalTask', 'updateGoalTask', 'deleteGoalTask'
+    'updateProject', 'deleteProject', 'addGoalTask', 'updateGoalTask', 'deleteGoalTask',
+    'addCategory', 'updateCategory', 'deleteCategory'
   ].forEach(name => {
     const original = DB[name].bind(DB);
     DB[name] = async (...args) => {
