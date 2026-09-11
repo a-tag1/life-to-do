@@ -1280,14 +1280,31 @@ async function loadSettingsView() {
 }
 
 async function loadCategoryList() {
-  state.categories = (await DB.getCategories()).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  state.categories = (await DB.getCategories()).sort((a, b) =>
+    (a.order ?? a.id) - (b.order ?? b.id)
+  );
   const container = document.getElementById('category-list');
   container.innerHTML = state.categories.length ? state.categories.map(category => `
     <div class="category-item" data-id="${category.id}">
-      <span class="category-swatch" style="background:${categoryColor(category.color)}"></span>
-      <span class="category-name">${escapeHtml(category.name)}</span>
+      <span class="drag-handle category-drag-handle" aria-label="並び替え">⠿</span>
+      <input class="category-name-input" data-id="${category.id}" type="text" value="${escapeHtml(category.name)}" maxlength="30" aria-label="カテゴリ名">
+      <input class="category-color-input" data-id="${category.id}" type="color" value="${categoryColor(category.color)}" aria-label="テーマ色">
       <button class="btn-delete btn-category-delete" data-id="${category.id}" aria-label="削除">×</button>
     </div>`).join('') : '<div class="empty-state" style="padding:16px 0">カテゴリはまだありません</div>';
+  const categoryMap = new Map(state.categories.map(category => [category.id, category]));
+  const saveCategory = debounce(async (id, changes) => {
+    const category = categoryMap.get(id);
+    if (!category) return;
+    Object.assign(category, changes);
+    await DB.updateCategory(category);
+  }, 400);
+  container.querySelectorAll('.category-name-input').forEach(input => input.addEventListener('input', () => {
+    const name = input.value.trim();
+    if (name) saveCategory(parseInt(input.dataset.id), { name });
+  }));
+  container.querySelectorAll('.category-color-input').forEach(input => input.addEventListener('input', () => {
+    saveCategory(parseInt(input.dataset.id), { color: categoryColor(input.value) });
+  }));
   container.querySelectorAll('.btn-category-delete').forEach(btn => btn.addEventListener('click', async () => {
     const id = parseInt(btn.dataset.id);
     if (!confirm('このカテゴリを削除しますか？紐づく理想像はカテゴリなしになります。')) return;
@@ -1296,6 +1313,10 @@ async function loadCategoryList() {
     await DB.deleteCategory(id);
     await loadCategoryList();
   }));
+  enableDragReorder(container, '.category-item', '.category-drag-handle', async ids => {
+    await persistReorder(state.categories, ids, DB.updateCategory);
+    state.categories.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  });
 }
 
 async function loadTemplateList() {
@@ -1354,7 +1375,7 @@ function initSettingsView() {
     const nameInput = document.getElementById('category-name-input');
     const name = nameInput.value.trim();
     if (!name) { nameInput.focus(); return; }
-    await DB.addCategory({ name, color: categoryColor(document.getElementById('category-color-input').value) });
+    await DB.addCategory({ name, color: categoryColor(document.getElementById('category-color-input').value), order: Date.now() });
     nameInput.value = '';
     await loadCategoryList();
   });
