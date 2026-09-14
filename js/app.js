@@ -345,13 +345,11 @@ async function loadTodayView() {
   updateHeader();
 }
 
-const _savePlan = debounce(async val => {
-  const date = formatDate(state.todayDate);
+const _savePlan = debounce(async (date, val) => {
   const e = await DB.getDaily(date); e.plan = val; DB.saveDaily(e);
 }, 500);
 
-const _saveActual = debounce(async val => {
-  const date = formatDate(state.todayDate);
+const _saveActual = debounce(async (date, val) => {
   const e = await DB.getDaily(date); e.actual = val; DB.saveDaily(e);
 }, 500);
 
@@ -373,8 +371,8 @@ function initTodayView() {
     autoResize(actualTA);
   });
 
-  planTA.addEventListener('input', e => _savePlan(e.target.value));
-  actualTA.addEventListener('input', e => _saveActual(e.target.value));
+  planTA.addEventListener('input', e => _savePlan(formatDate(state.todayDate), e.target.value));
+  actualTA.addEventListener('input', e => _saveActual(formatDate(state.todayDate), e.target.value));
 
   document.querySelectorAll('.btn-now').forEach(btn => {
     btn.addEventListener('click', () => {
