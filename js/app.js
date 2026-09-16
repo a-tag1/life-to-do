@@ -180,7 +180,7 @@ function downloadBlob(blob, name) {
 const _today = new Date();
 
 const state = {
-  view: 'today',
+  view: 'monthly',
   todayDate: new Date(_today),
   monthDate: new Date(_today.getFullYear(), _today.getMonth(), 1),
   yearDate: new Date(_today.getFullYear(), 0, 1),
@@ -1953,7 +1953,7 @@ async function init() {
   }
 
   // 初期ビュー表示
-  navigate('today');
+  navigate('monthly');
 }
 
 document.addEventListener('DOMContentLoaded', init);
