@@ -211,14 +211,6 @@ input,textarea,select { font-family:inherit; color:var(--text); }
 body.force-dark .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.35); }
 body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05); }
 
-.habit-link-section { margin-top:4px; }
-.btn-habit {
-  width:100%; background:var(--surface); color:var(--text-2);
-  border:1px solid var(--sep); border-radius:var(--r); padding:13px;
-  font-size:13px; font-weight:500; transition:background var(--ease),color var(--ease);
-}
-.btn-habit:active { background:var(--inset); color:var(--text); }
-
 /* ============================================================ Monthly View */
 .month-day {
   background:var(--surface); border-radius:var(--r);
@@ -585,13 +577,6 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   border:1px solid var(--sep-2); border-radius:var(--r-sm);
   background:var(--inset); padding:3px 6px; outline:none;
 }
-.task-actions { display:flex; gap:4px; flex-shrink:0; margin-top:2px; }
-.btn-task-transfer {
-  background:none; border:1px solid var(--sep-2); border-radius:var(--r-pill);
-  padding:3px 10px; font-size:11px; font-weight:600; color:var(--accent);
-  white-space:nowrap; transition:all var(--ease);
-}
-.btn-task-transfer:active { background:var(--accent); color:#fff; border-color:var(--accent); }
 .btn-task-delete {
   background:none; border:none; color:var(--text-3);
   font-size:20px; line-height:1; padding:2px 4px; transition:color var(--ease);

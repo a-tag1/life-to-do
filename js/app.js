@@ -388,16 +388,6 @@ function initTodayView() {
     });
   });
 
-  document.getElementById('btn-habit-app').addEventListener('click', async () => {
-    const url = await DB.getSetting('habitAppUrl');
-    if (!url) { alert('設定画面で習慣アプリのURLを設定してください。'); return; }
-    // iOS PWA standalone では window.open() がブロックされるため location.href を使う
-    if (navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
-      location.href = url;
-    } else {
-      window.open(url, '_blank', 'noopener');
-    }
-  });
 }
 
 /* ============================================================
@@ -1164,9 +1154,6 @@ async function renderTaskList() {
           <textarea class="task-text${t.completed ? ' completed' : ''}" data-id="${t.id}" rows="1" placeholder="タスクを入力..."></textarea>
           <input type="date" class="task-due-input" data-id="${t.id}" value="${t.dueDate || ''}">
         </div>
-        <div class="task-actions">
-          <button class="btn-task-transfer" data-id="${t.id}" title="今日の予定に転送">→今日</button>
-        </div>
       </div>`;
   };
 
@@ -1237,19 +1224,6 @@ async function renderTaskList() {
     });
   });
 
-  // →今日ボタン
-  container.querySelectorAll('.btn-task-transfer').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const t = taskMap.get(parseInt(btn.dataset.id));
-      if (!t) return;
-      const todayStr = formatDate(new Date());
-      const entry = await DB.getDaily(todayStr);
-      entry.plan = entry.plan ? entry.plan + '\n' + t.text : t.text;
-      await DB.saveDaily(entry);
-      btn.textContent = '✓転送！';
-      setTimeout(() => { btn.textContent = '→今日'; }, 1800);
-    });
-  });
 }
 
 /* ============================================================
@@ -1271,7 +1245,6 @@ function initTasksView() {
 async function loadSettingsView() {
   await loadTemplateList();
   await loadCategoryList();
-  document.getElementById('habit-url-input').value = await DB.getSetting('habitAppUrl');
   document.getElementById('dark-mode-select').value = await DB.getSetting('darkMode', 'system');
   await checkStorageStatus();
   updateHeader();
@@ -1376,14 +1349,6 @@ function initSettingsView() {
     await DB.addCategory({ name, color: categoryColor(document.getElementById('category-color-input').value), order: Date.now() });
     nameInput.value = '';
     await loadCategoryList();
-  });
-
-  document.getElementById('btn-save-habit-url').addEventListener('click', async () => {
-    const url = document.getElementById('habit-url-input').value.trim();
-    await DB.saveSetting('habitAppUrl', url);
-    const btn = document.getElementById('btn-save-habit-url');
-    btn.textContent = '✓ 保存しました';
-    setTimeout(() => { btn.textContent = '保存'; }, 2000);
   });
 
   document.getElementById('dark-mode-select').addEventListener('change', async e => {
