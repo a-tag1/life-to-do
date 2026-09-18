@@ -245,8 +245,19 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
 .month-day-task { display:flex; align-items:flex-start; gap:8px; padding:4px 0; font-size:13px; }
 .month-day-task.completed { opacity:0.5; }
 .month-day-task-checkbox { width:16px; height:16px; flex-shrink:0; margin-top:2px; accent-color:var(--accent); cursor:pointer; }
-.month-day-task-text { color:var(--text); line-height:1.5; }
+.month-day-task-body { flex:1; min-width:0; display:flex; align-items:flex-start; gap:6px; }
+.month-day-task-text { flex:1; min-width:0; color:var(--text); line-height:1.5; }
 .month-day-task-text small { color:var(--text-2); font-weight:400; }
+.month-day-task-due-wrap {
+  position:relative; flex:0 0 24px; width:24px; height:24px; align-self:flex-start;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--sep); border-radius:var(--r-sm); background:var(--inset);
+  color:var(--text-2); cursor:pointer;
+}
+.month-day-task-due-icon { width:16px; height:16px; pointer-events:none; }
+.month-day-task-due {
+  position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;
+}
 
 /* ============================================================ Yearly View */
 .year-month {

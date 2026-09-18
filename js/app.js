@@ -434,7 +434,15 @@ async function loadMonthlyView() {
         const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
         return `<div class="month-day-task${t.completed ? ' completed' : ''}" data-id="${t.id}">
           <input type="checkbox" class="month-day-task-checkbox" data-id="${t.id}"${t.completed ? ' checked' : ''}>
-          <span class="month-day-task-text">${escapeHtml(t.text || '')}${label ? ` <small>（${escapeHtml(label)}）</small>` : ''}</span>
+          <div class="month-day-task-body">
+            <span class="month-day-task-text">${escapeHtml(t.text || '')}${label ? ` <small>（${escapeHtml(label)}）</small>` : ''}</span>
+            <label class="month-day-task-due-wrap" title="日付を変更">
+              <svg class="month-day-task-due-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <input type="date" class="month-day-task-due" data-id="${t.id}" value="${t.dueDate || ''}" aria-label="タスクの日付を変更">
+            </label>
+          </div>
         </div>`;
       }).join('')}
     </div>`;
@@ -466,6 +474,17 @@ async function loadMonthlyView() {
       const t = taskById.get(parseInt(cb.dataset.id));
       if (!t) return;
       t.completed = cb.checked;
+      await DB.updateGoalTask(t);
+      await loadMonthlyView();
+    });
+  });
+
+  // 期限保存（変更で月内の表示位置を更新）
+  container.querySelectorAll('.month-day-task-due').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const t = taskById.get(parseInt(inp.dataset.id));
+      if (!t) return;
+      t.dueDate = inp.value;
       await DB.updateGoalTask(t);
       await loadMonthlyView();
     });
