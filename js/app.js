@@ -327,31 +327,38 @@ function goBack() {
    今日ビュー
    ============================================================ */
 let planTA, actualTA;
+let todaySaveChain = Promise.resolve();
+
+function queueTodaySave(date, changes) {
+  todaySaveChain = todaySaveChain.then(async () => {
+    const entry = await DB.getDaily(date);
+    Object.assign(entry, changes);
+    await DB.saveDaily(entry);
+  });
+  return todaySaveChain;
+}
 
 function flushTodaySave() {
   if (!planTA) return;
   const date = formatDate(state.todayDate);
-  DB.getDaily(date).then(entry => {
-    entry.plan = planTA.value;
-    entry.actual = actualTA.value;
-    DB.saveDaily(entry);
-  });
+  queueTodaySave(date, { plan: planTA.value, actual: actualTA.value });
 }
 
 async function loadTodayView() {
-  const entry = await DB.getDaily(formatDate(state.todayDate));
+  const date = formatDate(state.todayDate);
+  const loadId = Symbol();
+  loadTodayView.currentLoad = loadId;
+  await todaySaveChain;
+  const entry = await DB.getDaily(date);
+  if (loadTodayView.currentLoad !== loadId || state.view !== 'today' || formatDate(state.todayDate) !== date) return;
   planTA.value = entry.plan || '';
   actualTA.value = entry.actual || '';
   updateHeader();
 }
 
-const _savePlan = debounce(async (date, val) => {
-  const e = await DB.getDaily(date); e.plan = val; DB.saveDaily(e);
-}, 500);
+const _savePlan = debounce((date, val) => queueTodaySave(date, { plan: val }), 500);
 
-const _saveActual = debounce(async (date, val) => {
-  const e = await DB.getDaily(date); e.actual = val; DB.saveDaily(e);
-}, 500);
+const _saveActual = debounce((date, val) => queueTodaySave(date, { actual: val }), 500);
 
 function initTodayView() {
   planTA = document.getElementById('plan-textarea');
