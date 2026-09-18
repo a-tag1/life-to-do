@@ -597,8 +597,8 @@ async function loadYearlyView() {
       <div class="year-month">
         <div class="year-month-title">${m + 1}月</div>
         <textarea class="year-note" data-key="${key}" placeholder="${m + 1}月のメモ..." rows="2"></textarea>
-        ${renderMonthTasks(key)}
         ${starHtml}
+        ${renderMonthTasks(key)}
       </div>`;
   });
 
