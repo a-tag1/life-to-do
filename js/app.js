@@ -636,7 +636,7 @@ async function loadYearlyView() {
     const textEls = monthEl.querySelectorAll('.starred-day-text');
     textEls.forEach((el, i) => {
       const e = starred[i];
-      if (e) el.textContent = (e.note || e.plan || '').slice(0, 80);
+      if (e) el.textContent = (e.note || '').slice(0, 80);
     });
     starIdx += starred.length;
   });
