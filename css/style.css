@@ -468,9 +468,11 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
 .btn-project-delete:active { color:#FF3B30; }
 
 .project-accordion-body {
-  display:none; padding:0 14px 14px; border-top:1px solid var(--sep);
+  padding:0 14px 14px; border-top:1px solid var(--sep);
 }
-.project-accordion.open .project-accordion-body { display:block; }
+.project-accordion:not(.open):not(:has(.project-task-item:not(.completed-item))) .project-accordion-body { display:none; }
+.project-accordion:not(.open) .project-task-item.completed-item,
+.project-accordion:not(.open) .btn-add-task-to-project { display:none; }
 
 /* Tasks inside Project */
 .project-task-item {

@@ -976,7 +976,7 @@ async function renderProjectList() {
         <div class="project-accordion-body">
           <div class="project-tasks" data-project-id="${project.id}">
             ${tasks.map(task => `
-              <div class="project-task-item${category ? ' has-category' : ''}" data-id="${task.id}"${categoryStyle(category)}>
+              <div class="project-task-item${category ? ' has-category' : ''}${task.completed ? ' completed-item' : ''}" data-id="${task.id}"${categoryStyle(category)}>
                 <span class="drag-handle project-task-drag-handle" aria-label="並び替え">⠿</span>
                 <input type="checkbox" class="project-task-checkbox" data-id="${task.id}"${task.completed ? ' checked' : ''}>
                 <div class="project-task-body">
@@ -1072,6 +1072,7 @@ async function renderProjectList() {
       await DB.updateGoalTask(task);
       const ta = container.querySelector(`.project-task-text[data-id="${id}"]`);
       if (ta) ta.classList.toggle('completed', cb.checked);
+      cb.closest('.project-task-item').classList.toggle('completed-item', cb.checked);
       // バッジ数更新
       const accordion = cb.closest('.project-accordion');
       const projectId = parseInt(accordion.dataset.id);
