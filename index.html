@@ -112,15 +112,15 @@
             <option value="">カテゴリなし</option>
           </select>
         </div>
-        <div class="goal-detail-note-card">
-          <div class="section-title">モチベーション</div>
+        <details id="goal-note-details" class="goal-detail-note-card">
+          <summary class="section-title"><span id="goal-note-preview" class="goal-note-preview is-empty">内容を入力...</span></summary>
           <textarea
             id="goal-note-textarea"
             class="goal-note-textarea"
             placeholder="なぜこの目標を達成したいのか、どんな自分になりたいのかを書いてください..."
             rows="3"
           ></textarea>
-        </div>
+        </details>
         <div id="project-list"></div>
         <button id="btn-add-project" class="btn-add-project">＋ やりたいことを追加</button>
       </div>

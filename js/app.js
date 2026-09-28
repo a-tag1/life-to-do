@@ -880,6 +880,13 @@ async function renderProjectOverview() {
 /* ============================================================
    理想像詳細ビュー (Goal Detail)
    ============================================================ */
+function updateGoalNotePreview(value) {
+  const preview = document.getElementById('goal-note-preview');
+  const text = value.trim().replace(/\s+/g, ' ');
+  preview.textContent = text || '内容を入力...';
+  preview.classList.toggle('is-empty', !text);
+}
+
 async function loadGoalDetailView() {
   const [goal, categories] = await Promise.all([DB.getGoal(state.currentGoalId), DB.getCategories()]);
   if (!goal) { navigate('vision'); return; }
@@ -891,6 +898,8 @@ async function loadGoalDetailView() {
 
   const noteTA = document.getElementById('goal-note-textarea');
   noteTA.value = goal.note || '';
+  document.getElementById('goal-note-details').open = false;
+  updateGoalNotePreview(noteTA.value);
   autoResize(noteTA);
   document.getElementById('goal-detail-category-select').innerHTML = categoryOptions(categories, goal.categoryId);
 
@@ -909,13 +918,24 @@ function initGoalDetailView() {
   titleInput.addEventListener('input', () => _saveTitle(titleInput.value));
 
   const noteTA = document.getElementById('goal-note-textarea');
+  const resizeNote = () => {
+    autoResize(noteTA);
+    if (noteTA.scrollHeight > noteTA.clientHeight) noteTA.style.height = `${noteTA.scrollHeight}px`;
+  };
+  document.getElementById('goal-note-details').addEventListener('toggle', e => {
+    if (e.target.open) resizeNote();
+  });
   const _saveNote = debounce(async val => {
     const goal = await DB.getGoal(state.currentGoalId);
     if (!goal) return;
     goal.note = val;
     DB.updateGoal(goal);
   }, 500);
-  noteTA.addEventListener('input', () => { autoResize(noteTA); _saveNote(noteTA.value); });
+  noteTA.addEventListener('input', () => {
+    resizeNote();
+    updateGoalNotePreview(noteTA.value);
+    _saveNote(noteTA.value);
+  });
 
   document.getElementById('goal-detail-category-select').addEventListener('change', async e => {
     const goal = await DB.getGoal(state.currentGoalId);
