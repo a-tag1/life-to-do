@@ -37,8 +37,8 @@ function debounce(fn, ms) {
    端付近ではオートスクロールも行うことで滑らかな並び替えを実現する。 */
 function enableDragReorder(container, itemSelector, handleSelector, onReorder) {
   const SIBLING_TRANSITION = 'transform 0.18s ease';
-  const AUTOSCROLL_MARGIN = 56;
-  const AUTOSCROLL_SPEED = 14;
+  const AUTOSCROLL_MARGIN = 32;
+  const AUTOSCROLL_SPEED = 3;
 
   container.querySelectorAll(handleSelector).forEach(handle => {
     const item = handle.closest(itemSelector);
