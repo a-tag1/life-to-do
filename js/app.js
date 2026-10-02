@@ -973,7 +973,13 @@ async function renderProjectList() {
   }
 
   const allTasks = await Promise.all(projects.map(p => DB.getTasksForProject(p.id)));
-  allTasks.forEach(tasks => tasks.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+  allTasks.forEach(tasks => tasks.sort((a, b) => {
+    if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
+    const dueDateOrder = a.dueDate && b.dueDate
+      ? (a.completed ? b.dueDate.localeCompare(a.dueDate) : a.dueDate.localeCompare(b.dueDate))
+      : a.dueDate ? -1 : b.dueDate ? 1 : 0;
+    return dueDateOrder || (a.order ?? 0) - (b.order ?? 0);
+  }));
 
   container.innerHTML = projects.map((project, pi) => {
     const tasks = allTasks[pi];
