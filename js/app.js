@@ -428,7 +428,7 @@ async function loadMonthlyView() {
     const tasks = tasksByDate[dateStr];
     if (!tasks || !tasks.length) return '';
     return `<div class="month-day-tasks">
-      ${tasks.map(t => {
+      ${[...tasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map(t => {
         const project = projectMap.get(t.projectId);
         const goal = project ? goalMap.get(project.goalId) : null;
         const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
