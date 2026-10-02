@@ -443,6 +443,11 @@ async function loadMonthlyView() {
               <input type="date" class="month-day-task-due" data-id="${t.id}" value="${t.dueDate || ''}" aria-label="タスクの日付を変更">
             </label>
           </div>
+          ${project && goal ? `<button class="month-day-task-project-link" data-id="${t.id}" type="button" title="プロジェクトを開く" aria-label="${escapeHtml(project.title || '名称未設定のプロジェクト')}を開く">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
+            </svg>
+          </button>` : ''}
         </div>`;
       }).join('')}
     </div>`;
@@ -476,6 +481,17 @@ async function loadMonthlyView() {
       t.completed = cb.checked;
       await DB.updateGoalTask(t);
       await loadMonthlyView();
+    });
+  });
+
+  container.querySelectorAll('.month-day-task-project-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const task = taskById.get(parseInt(btn.dataset.id));
+      const project = task && projectMap.get(task.projectId);
+      if (!project || !goalMap.has(project.goalId)) return;
+      state.currentGoalId = project.goalId;
+      state.currentProjectId = project.id;
+      navigate('goal-detail');
     });
   });
 
