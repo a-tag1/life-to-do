@@ -231,7 +231,7 @@
 
         <div class="app-version">
           <span>LifeToDo</span>
-          <span><span id="version-number">v1.5.10</span> &nbsp;·&nbsp; <span id="version-date">2026/10/5</span></span>
+          <span><span id="version-number">v1.6.0</span> &nbsp;·&nbsp; <span id="version-date">2026/10/6</span></span>
         </div>
 
       </div>
@@ -329,6 +329,27 @@
         <button id="btn-save-goal" class="btn-primary">追加する</button>
       </div>
     </div>
+  </div>
+
+  <!-- ========== プロジェクト移動モーダル ========== -->
+  <div id="project-move-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="project-move-modal-title">
+    <div id="project-move-modal-overlay" class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="project-move-modal-title">移動先のビジョン</h3>
+        <button id="project-move-modal-close" class="btn-close" aria-label="閉じる">×</button>
+      </div>
+      <div class="modal-form">
+        <label for="project-move-goal-select">ビジョンを選択</label>
+        <select id="project-move-goal-select"></select>
+        <button id="btn-confirm-project-move" class="btn-primary" type="button">移動する</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="project-move-toast" class="project-move-toast hidden" role="status" aria-live="polite">
+    <span id="project-move-toast-message"></span>
+    <button id="btn-undo-project-move" type="button">元に戻す</button>
   </div>
 
 </div>

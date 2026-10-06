@@ -192,6 +192,10 @@ const state = {
   visionTab: 'goals'
 };
 
+let pendingProjectMove = null;
+let projectMoveUndo = null;
+let projectMoveToastTimer = null;
+
 const cloudSync = {
   token: '',
   fileId: '',
@@ -972,6 +976,85 @@ function initGoalDetailView() {
       input.focus();
     }
   });
+
+  document.getElementById('project-move-modal-close').addEventListener('click', closeProjectMoveModal);
+  document.getElementById('project-move-modal-overlay').addEventListener('click', closeProjectMoveModal);
+  document.getElementById('btn-confirm-project-move').addEventListener('click', moveSelectedProject);
+  document.getElementById('btn-undo-project-move').addEventListener('click', async () => {
+    if (!projectMoveUndo) return;
+    const undo = projectMoveUndo;
+    projectMoveUndo = null;
+    clearTimeout(projectMoveToastTimer);
+    document.getElementById('project-move-toast').classList.add('hidden');
+    await undo();
+  });
+}
+
+async function openProjectMoveModal(projectId) {
+  const [projects, goals] = await Promise.all([DB.getAllProjects(), DB.getGoals()]);
+  const project = projects.find(item => item.id === projectId);
+  if (!project) return;
+
+  const destinations = goals
+    .filter(goal => goal.id !== project.goalId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const select = document.getElementById('project-move-goal-select');
+  select.innerHTML = destinations.length
+    ? `<option value="">移動先を選択...</option>${destinations.map(goal =>
+      `<option value="${goal.id}">${escapeHtml(goal.title || '名称未設定のビジョン')}</option>`
+    ).join('')}`
+    : '<option value="">移動できるビジョンがありません</option>';
+  document.getElementById('btn-confirm-project-move').disabled = !destinations.length;
+  pendingProjectMove = { projectId, sourceGoalId: project.goalId };
+  document.getElementById('project-move-modal').classList.remove('hidden');
+}
+
+function closeProjectMoveModal() {
+  document.getElementById('project-move-modal').classList.add('hidden');
+  pendingProjectMove = null;
+}
+
+async function moveSelectedProject() {
+  const moveRequest = pendingProjectMove;
+  if (!moveRequest) return;
+  const targetGoalId = parseInt(document.getElementById('project-move-goal-select').value);
+  if (!targetGoalId) return;
+
+  const projects = await DB.getAllProjects();
+  const project = projects.find(item => item.id === moveRequest.projectId);
+  if (!project || project.goalId !== moveRequest.sourceGoalId) {
+    closeProjectMoveModal();
+    return;
+  }
+
+  const previousGoalId = project.goalId;
+  const previousOrder = project.order;
+  const nextOrder = projects
+    .filter(item => item.goalId === targetGoalId)
+    .reduce((max, item) => Math.max(max, item.order ?? -1), -1) + 1;
+  await DB.updateProject({ ...project, goalId: targetGoalId, order: nextOrder });
+  closeProjectMoveModal();
+  await renderProjectList();
+
+  const title = project.title || 'プロジェクト';
+  showProjectMoveToast(`${title}を移動しました`, async () => {
+    const current = (await DB.getAllProjects()).find(item => item.id === project.id);
+    if (!current) return;
+    await DB.updateProject({ ...current, goalId: previousGoalId, order: previousOrder });
+    if (state.view === 'goal-detail') await renderProjectList();
+  });
+}
+
+function showProjectMoveToast(message, undo) {
+  const toast = document.getElementById('project-move-toast');
+  document.getElementById('project-move-toast-message').textContent = message;
+  projectMoveUndo = undo;
+  clearTimeout(projectMoveToastTimer);
+  toast.classList.remove('hidden');
+  projectMoveToastTimer = setTimeout(() => {
+    toast.classList.add('hidden');
+    projectMoveUndo = null;
+  }, 6000);
 }
 
 async function renderProjectList() {
@@ -1011,6 +1094,11 @@ async function renderProjectList() {
           </div>
           <span class="project-task-badge">${done}/${tasks.length}</span>
           <span class="project-header-actions">
+            <button class="btn-project-move" data-id="${project.id}" type="button" aria-label="別のビジョンへ移動" title="別のビジョンへ移動">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4" />
+              </svg>
+            </button>
             <input type="checkbox" class="project-complete-checkbox" data-id="${project.id}"${project.completed ? ' checked' : ''} aria-label="完了">
             <button class="btn-project-delete" data-id="${project.id}" aria-label="削除">×</button>
           </span>
@@ -1050,11 +1138,16 @@ async function renderProjectList() {
   container.querySelectorAll('.project-accordion-header').forEach(header => {
     header.addEventListener('click', e => {
       if (e.target.closest('.btn-project-delete') ||
+          e.target.closest('.btn-project-move') ||
           e.target.closest('.project-title-input') ||
           e.target.closest('.project-complete-checkbox') ||
           e.target.closest('.project-drag-handle')) return;
       header.closest('.project-accordion').classList.toggle('open');
     });
+  });
+
+  container.querySelectorAll('.btn-project-move').forEach(btn => {
+    btn.addEventListener('click', () => openProjectMoveModal(parseInt(btn.dataset.id)));
   });
 
   // タイトル入力クリック伝播防止
