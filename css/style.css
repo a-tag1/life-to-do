@@ -615,11 +615,27 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   .desktop-day-task-count { margin-top:auto; color:var(--accent); font-size:10px; font-weight:600; }
   .desktop-day-panel { display:flex; flex-direction:column; gap:14px; min-width:0; }
   .desktop-day-detail, .desktop-upcoming-panel { padding:16px; }
-  .desktop-day-detail { padding-top:12px; padding-bottom:12px; }
+  .desktop-day-detail { padding-top:12px; }
   .desktop-panel-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:0; }
   .desktop-panel-heading h2 { font-size:16px; font-weight:700; }
-  .desktop-panel-heading > span { color:var(--star-color); font-size:18px; }
+  .desktop-star-toggle {
+    flex:0 0 32px; width:32px; height:32px; display:grid; place-items:center;
+    border:0; border-radius:var(--r-sm); background:transparent; color:var(--sep-2);
+    font-size:23px; line-height:1; cursor:pointer;
+  }
+  .desktop-star-toggle:hover { background:var(--inset); }
+  .desktop-star-toggle.active { color:var(--star-color); }
   .desktop-holiday-label { margin-top:3px; color:var(--sunday); font-size:12px; }
+  .desktop-note-label {
+    display:block; margin:14px 0 6px; color:var(--text-2); font-size:10px;
+    font-weight:700; letter-spacing:.08em;
+  }
+  .desktop-note-input {
+    display:block; width:100%; min-height:110px; padding:9px 10px; resize:vertical;
+    border:1px solid var(--sep); border-radius:var(--r-sm); outline:none;
+    background:var(--inset); color:var(--text); font-size:13px; line-height:1.6;
+  }
+  .desktop-note-input:focus { border-color:var(--accent); }
   .desktop-upcoming-panel h2 {
     display:block; margin:12px 0 6px; color:var(--text-2); font-size:10px;
     font-weight:700; letter-spacing:.08em;

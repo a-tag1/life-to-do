@@ -83,8 +83,10 @@
                 <h2 id="desktop-selected-date"></h2>
                 <p id="desktop-selected-holiday" class="desktop-holiday-label" hidden></p>
               </div>
-              <span id="desktop-selected-star" aria-label="Starred day" hidden>★</span>
+              <button id="desktop-selected-star" class="desktop-star-toggle" type="button" aria-label="Add star" aria-pressed="false">☆</button>
             </div>
+            <label for="desktop-note-textarea" class="desktop-note-label" data-label-ja="メモ" data-label-en="NOTE">NOTE</label>
+            <textarea id="desktop-note-textarea" class="desktop-note-input" placeholder="Add a note..."></textarea>
           </div>
           <section class="desktop-upcoming-panel">
             <h2 data-label-ja="期限の近いタスク" data-label-en="UPCOMING TASKS">UPCOMING TASKS</h2>

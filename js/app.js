@@ -675,9 +675,56 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
     const holidayEl = document.getElementById('desktop-selected-holiday');
     holidayEl.textContent = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
     holidayEl.hidden = !holiday;
-    document.getElementById('desktop-selected-star').hidden = !entry.star;
+    const starButton = document.getElementById('desktop-selected-star');
+    starButton.textContent = entry.star ? '★' : '☆';
+    starButton.classList.toggle('active', Boolean(entry.star));
+    starButton.setAttribute('aria-pressed', String(Boolean(entry.star)));
+    starButton.setAttribute('aria-label', entry.star
+      ? (uiLanguage === 'en' ? 'Remove star' : '星を解除')
+      : (uiLanguage === 'en' ? 'Add star' : '星を付ける'));
+    const selectedCell = grid.querySelector(`[data-date="${date}"]`);
+    const numberRow = selectedCell?.querySelector('.desktop-day-number-row');
+    let marker = selectedCell?.querySelector('.desktop-day-star');
+    if (entry.star && numberRow && !marker) {
+      numberRow.insertAdjacentHTML('beforeend', '<span class="desktop-day-star">★</span>');
+    } else if (!entry.star && marker) {
+      marker.remove();
+    }
+    const note = document.getElementById('desktop-note-textarea');
+    note.value = entry.note || '';
+    note.placeholder = uiLanguage === 'en' ? 'Add a note...' : 'メモを入力...';
+    note.setAttribute('aria-label', uiLanguage === 'en' ? 'Daily note' : '日別メモ');
   };
   grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.addEventListener('click', () => updateSelectedDay(button.dataset.date)));
+  const noteTextarea = document.getElementById('desktop-note-textarea');
+  const noteSaveTimers = new Map();
+  noteTextarea.oninput = () => {
+    const date = state.selectedDate;
+    const value = noteTextarea.value;
+    clearTimeout(noteSaveTimers.get(date));
+    noteSaveTimers.set(date, setTimeout(async () => {
+      const entry = await DB.getDaily(date);
+      entry.note = value;
+      await DB.saveDaily(entry);
+      byDate.set(date, entry);
+      noteSaveTimers.delete(date);
+    }, 400));
+  };
+  const starButton = document.getElementById('desktop-selected-star');
+  starButton.onclick = async () => {
+    const date = state.selectedDate;
+    const entry = byDate.get(date) || await DB.getDaily(date);
+    const pendingNoteSave = noteSaveTimers.get(date);
+    if (pendingNoteSave) {
+      clearTimeout(pendingNoteSave);
+      entry.note = noteTextarea.value;
+      noteSaveTimers.delete(date);
+    }
+    entry.star = !entry.star;
+    await DB.saveDaily(entry);
+    byDate.set(date, entry);
+    updateSelectedDay(date);
+  };
   updateSelectedDay(state.selectedDate);
 
   const upcoming = document.getElementById('desktop-upcoming-tasks');
