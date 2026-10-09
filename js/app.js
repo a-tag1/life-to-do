@@ -651,7 +651,6 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
     const weekday = new Date(year, month, day).getDay();
     const entry = byDate.get(date) || {};
     const holiday = holidays.get(date);
-    const note = (entry.plan || entry.actual || entry.note || '').split('\n')[0].trim();
     const taskCount = allTasks.filter(task => task.dueDate === date && !task.completed).length;
     const classes = ['desktop-calendar-day', date === todayStr ? 'today' : '', date === state.selectedDate ? 'selected' : '',
       weekday === 0 ? 'sunday' : '', weekday === 6 ? 'saturday' : '', holiday ? 'holiday' : ''].filter(Boolean).join(' ');
@@ -660,17 +659,16 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
     calendarHtml += `<button type="button" class="${classes}" data-date="${date}" aria-label="${escapeHtml(`${ariaDate}${holidayLabel ? `, ${holidayLabel}` : ''}`)}">
       <span class="desktop-day-number-row"><span class="desktop-day-number">${day}</span>${entry.star ? '<span class="desktop-day-star">★</span>' : ''}</span>
       ${holidayLabel ? `<span class="desktop-day-holiday">${escapeHtml(holidayLabel)}</span>` : ''}
-      ${note ? `<span class="desktop-day-summary">${escapeHtml(note)}</span>` : ''}
       ${taskCount ? `<span class="desktop-day-task-count">${uiLanguage === 'en' ? `${taskCount} task${taskCount === 1 ? '' : 's'}` : `タスク ${taskCount}件`}</span>` : ''}
     </button>`;
   }
   calendarHtml += Array.from({ length: (7 - ((firstOffset + days) % 7)) % 7 }, () => '<div class="desktop-calendar-empty" aria-hidden="true"></div>').join('');
   grid.innerHTML = calendarHtml;
 
-  const updateSelectedDay = async date => {
+  const updateSelectedDay = date => {
     state.selectedDate = date;
     grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.classList.toggle('selected', button.dataset.date === date));
-    const entry = byDate.get(date) || await DB.getDaily(date);
+    const entry = byDate.get(date) || {};
     const parsed = new Date(`${date}T00:00:00`);
     const holiday = holidays.get(date);
     dateHeading.textContent = new Intl.DateTimeFormat(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(parsed);
@@ -678,28 +676,8 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
     holidayEl.textContent = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
     holidayEl.hidden = !holiday;
     document.getElementById('desktop-selected-star').hidden = !entry.star;
-    document.getElementById('desktop-plan-textarea').value = entry.plan || '';
-    document.getElementById('desktop-actual-textarea').value = entry.actual || '';
   };
   grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.addEventListener('click', () => updateSelectedDay(button.dataset.date)));
-  const saveSelectedField = debounce(async (date, field, value) => {
-    const entry = await DB.getDaily(date);
-    entry[field] = value;
-    await DB.saveDaily(entry);
-    if (date.startsWith(monthStr)) {
-      const target = grid.querySelector(`[data-date="${date}"]`);
-      if (target) {
-        const preview = target.querySelector('.desktop-day-summary');
-        const text = (entry.plan || entry.actual || entry.note || '').split('\n')[0].trim();
-        if (preview) preview.textContent = text;
-        else if (text) target.insertAdjacentHTML('beforeend', `<span class="desktop-day-summary">${escapeHtml(text)}</span>`);
-      }
-    }
-  }, 400);
-  ['plan', 'actual'].forEach(field => {
-    const textarea = document.getElementById(`desktop-${field}-textarea`);
-    textarea.oninput = () => saveSelectedField(state.selectedDate, field, textarea.value);
-  });
   updateSelectedDay(state.selectedDate);
 
   const upcoming = document.getElementById('desktop-upcoming-tasks');
