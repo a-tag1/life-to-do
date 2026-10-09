@@ -183,6 +183,7 @@ const state = {
   view: 'monthly',
   todayDate: new Date(_today),
   monthDate: new Date(_today.getFullYear(), _today.getMonth(), 1),
+  selectedDate: formatDate(_today),
   yearDate: new Date(_today.getFullYear(), 0, 1),
   tmplTarget: null,
   templates: [],
@@ -191,6 +192,8 @@ const state = {
   currentProjectId: null,
   visionTab: 'goals'
 };
+
+let uiLanguage = 'en';
 
 let pendingProjectMove = null;
 let projectMoveUndo = null;
@@ -254,15 +257,39 @@ function updateHeader() {
   prev.style.visibility = next.style.visibility = showNav ? 'visible' : 'hidden';
 
   const d = state.todayDate;
-  const titles = {
-    today:    `${d.getMonth() + 1}月${d.getDate()}日（${DAY_JP[d.getDay()]}）`,
-    monthly:  `${state.monthDate.getFullYear()}年${state.monthDate.getMonth() + 1}月`,
-    yearly:   `${state.yearDate.getFullYear()}年`,
-    vision:   'ビジョン・目標',
-    tasks:    'タスク',
-    settings: '設定・バックアップ'
+  const titles = uiLanguage === 'en' ? {
+    today: new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', weekday: 'short' }).format(d),
+    monthly: new Intl.DateTimeFormat('en', { year: 'numeric', month: 'long' }).format(state.monthDate),
+    yearly: String(state.yearDate.getFullYear()), vision: 'Projects', tasks: 'Tasks', settings: 'Settings'
+  } : {
+    today: `${d.getMonth() + 1}月${d.getDate()}日（${DAY_JP[d.getDay()]}）`,
+    monthly: `${state.monthDate.getFullYear()}年${state.monthDate.getMonth() + 1}月`,
+    yearly: `${state.yearDate.getFullYear()}年`, vision: 'ビジョン・目標', tasks: 'タスク', settings: '設定・バックアップ'
   };
   titleEl.textContent = titles[state.view] || '';
+  const navLabels = uiLanguage === 'en'
+    ? { monthly: 'Calendar', yearly: 'Year', vision: 'Projects', tasks: 'Tasks', today: 'Today', settings: 'Settings' }
+    : { monthly: '今月', yearly: '年間', vision: 'ビジョン', tasks: 'タスク', today: '今日', settings: '設定' };
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const label = item.querySelector('span');
+    if (label) label.textContent = navLabels[item.dataset.view] || label.textContent;
+  });
+  document.getElementById('btn-prev').setAttribute('aria-label', uiLanguage === 'en' ? 'Previous' : '前へ');
+  document.getElementById('btn-next').setAttribute('aria-label', uiLanguage === 'en' ? 'Next' : '次へ');
+  document.getElementById('desktop-language-select').setAttribute('aria-label', uiLanguage === 'en' ? 'Display language' : '表示言語');
+  const settingsLanguage = document.getElementById('ui-language-select');
+  if (settingsLanguage) settingsLanguage.value = uiLanguage;
+  document.documentElement.lang = uiLanguage;
+  document.title = window.matchMedia('(min-width: 1000px)').matches
+    ? (uiLanguage === 'en' ? 'Workspace' : 'ワークスペース')
+    : 'LifeToDo';
+}
+
+async function setUiLanguage(language) {
+  uiLanguage = language;
+  await DB.saveSetting('uiLanguage', language);
+  updateHeader();
+  if (state.view === 'monthly') await loadMonthlyView();
 }
 
 function updateFAB() {
@@ -411,6 +438,7 @@ async function loadMonthlyView() {
   const todayStr = formatDate(new Date());
   const pad = n => String(n).padStart(2, '0');
   const monthStr = `${year}-${pad(month + 1)}`;
+  const holidayMap = japaneseHolidays(year);
 
   const container = document.getElementById('monthly-days');
   container.innerHTML = '<div class="empty-state">読み込み中...</div>';
@@ -462,11 +490,13 @@ async function loadMonthlyView() {
     const d = i + 1;
     const dateStr = `${monthStr}-${pad(d)}`;
     const dow = new Date(year, month, d).getDay();
-    const dowCls = dow === 0 ? 'sun' : dow === 6 ? 'sat' : '';
+    const holiday = holidayMap.get(dateStr);
+    const dowCls = holiday || dow === 0 ? 'sun' : dow === 6 ? 'sat' : '';
+    const holidayLabel = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
     html += `
       <div class="month-day${dateStr === todayStr ? ' today' : ''}" data-date="${dateStr}">
         <div class="month-day-header">
-          <span class="month-day-num ${dowCls}">${d}日（${DAY_JP[dow]}）</span>
+          <span class="month-day-num ${dowCls}">${d}日（${DAY_JP[dow]}）${holidayLabel ? `<small class="month-day-holiday">${escapeHtml(holidayLabel)}</small>` : ''}</span>
           <button class="star-btn${entry.star ? ' active' : ''}" data-date="${dateStr}" aria-label="スターマーク">★</button>
         </div>
         ${renderDayTasks(dateStr)}
@@ -475,6 +505,8 @@ async function loadMonthlyView() {
   });
 
   container.innerHTML = html;
+
+  renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, days, year, month, todayStr);
 
   // 期限タスクのチェックボックス
   const taskById = new Map(allTasks.map(t => [t.id, t]));
@@ -542,6 +574,195 @@ async function loadMonthlyView() {
   });
 
   updateHeader();
+}
+
+const HOLIDAY_NAMES_EN = {
+  '元日': "New Year's Day", '成人の日': 'Coming of Age Day', '建国記念の日': 'National Foundation Day',
+  '天皇誕生日': "Emperor's Birthday", '春分の日': 'Vernal Equinox Day', '昭和の日': 'Showa Day',
+  '憲法記念日': 'Constitution Memorial Day', 'みどりの日': 'Greenery Day', 'こどもの日': "Children's Day",
+  '海の日': 'Marine Day', '山の日': 'Mountain Day', '敬老の日': 'Respect for the Aged Day',
+  '秋分の日': 'Autumnal Equinox Day', 'スポーツの日': 'Sports Day', '文化の日': 'Culture Day',
+  '勤労感謝の日': 'Labor Thanksgiving Day', '振替休日': 'Substitute Holiday', '国民の休日': "Citizen's Holiday",
+  '天皇の即位の日': 'Enthronement Day', '即位礼正殿の儀': 'Enthronement Ceremony Day'
+};
+
+function japaneseHolidays(year) {
+  const holidays = new Map();
+  const add = (month, day, name) => holidays.set(formatDate(new Date(year, month - 1, day)), name);
+  const nthMonday = (month, nth) => 1 + ((8 - new Date(year, month - 1, 1).getDay()) % 7) + (nth - 1) * 7;
+  const vernal = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  const autumnal = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+
+  add(1, 1, '元日'); add(1, nthMonday(1, 2), '成人の日'); add(2, 11, '建国記念の日');
+  if (year >= 2020) add(2, 23, '天皇誕生日');
+  else if (year >= 1989) add(12, 23, '天皇誕生日');
+  add(3, vernal, '春分の日'); add(4, 29, '昭和の日'); add(5, 3, '憲法記念日');
+  add(5, 4, 'みどりの日'); add(5, 5, 'こどもの日'); add(7, nthMonday(7, 3), '海の日');
+  add(8, 11, '山の日'); add(9, nthMonday(9, 3), '敬老の日'); add(9, autumnal, '秋分の日');
+  add(10, nthMonday(10, 2), 'スポーツの日'); add(11, 3, '文化の日'); add(11, 23, '勤労感謝の日');
+  if (year === 2019) { add(5, 1, '天皇の即位の日'); add(10, 22, '即位礼正殿の儀'); }
+
+  if (year === 2020) {
+    holidays.delete(`${year}-07-20`); holidays.delete(`${year}-10-12`);
+    add(7, 23, '海の日'); add(7, 24, 'スポーツの日'); add(8, 10, '山の日');
+  } else if (year === 2021) {
+    holidays.delete(`${year}-07-19`); holidays.delete(`${year}-08-11`); holidays.delete(`${year}-10-11`);
+    add(7, 22, '海の日'); add(7, 23, 'スポーツの日'); add(8, 8, '山の日');
+  }
+
+  const base = new Map(holidays);
+  for (const [date, name] of base) {
+    const day = new Date(`${date}T00:00:00`);
+    if (day.getDay() !== 0) continue;
+    day.setDate(day.getDate() + 1);
+    while (holidays.has(formatDate(day))) day.setDate(day.getDate() + 1);
+    holidays.set(formatDate(day), '振替休日');
+  }
+  for (const day = new Date(year, 0, 2); day <= new Date(year, 11, 30); day.setDate(day.getDate() + 1)) {
+    const date = formatDate(day);
+    if (holidays.has(date)) continue;
+    const previous = new Date(day); previous.setDate(previous.getDate() - 1);
+    const next = new Date(day); next.setDate(next.getDate() + 1);
+    if (holidays.has(formatDate(previous)) && holidays.has(formatDate(next))) holidays.set(date, '国民の休日');
+  }
+  return holidays;
+}
+
+function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, days, year, month, todayStr) {
+  const grid = document.getElementById('desktop-calendar-grid');
+  const weekdays = document.getElementById('desktop-calendar-weekdays');
+  const dateHeading = document.getElementById('desktop-selected-date');
+  if (!grid || !weekdays) return;
+
+  const locale = uiLanguage === 'en' ? 'en' : 'ja';
+  const weekStart = uiLanguage === 'en' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['月', '火', '水', '木', '金', '土', '日'];
+  weekdays.innerHTML = weekStart.map((day, index) => `<span${index === 6 ? ' class="sunday"' : ''}>${day}</span>`).join('');
+  const holidays = japaneseHolidays(year);
+  const firstOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+  if (!state.selectedDate.startsWith(monthStr)) {
+    const today = new Date();
+    const selectedDay = today.getFullYear() === year && today.getMonth() === month ? today.getDate() : 1;
+    state.selectedDate = `${monthStr}-${String(selectedDay).padStart(2, '0')}`;
+  }
+  const byDate = new Map(entries.map(entry => [entry.date, entry]));
+  let calendarHtml = Array.from({ length: firstOffset }, () => '<div class="desktop-calendar-empty" aria-hidden="true"></div>').join('');
+  for (let day = 1; day <= days; day++) {
+    const date = `${monthStr}-${String(day).padStart(2, '0')}`;
+    const weekday = new Date(year, month, day).getDay();
+    const entry = byDate.get(date) || {};
+    const holiday = holidays.get(date);
+    const note = (entry.plan || entry.actual || entry.note || '').split('\n')[0].trim();
+    const taskCount = allTasks.filter(task => task.dueDate === date && !task.completed).length;
+    const classes = ['desktop-calendar-day', date === todayStr ? 'today' : '', date === state.selectedDate ? 'selected' : '',
+      weekday === 0 ? 'sunday' : '', weekday === 6 ? 'saturday' : '', holiday ? 'holiday' : ''].filter(Boolean).join(' ');
+    const holidayLabel = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
+    const ariaDate = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(year, month, day));
+    calendarHtml += `<button type="button" class="${classes}" data-date="${date}" aria-label="${escapeHtml(`${ariaDate}${holidayLabel ? `, ${holidayLabel}` : ''}`)}">
+      <span class="desktop-day-number-row"><span class="desktop-day-number">${day}</span>${entry.star ? '<span class="desktop-day-star">★</span>' : ''}</span>
+      ${holidayLabel ? `<span class="desktop-day-holiday">${escapeHtml(holidayLabel)}</span>` : ''}
+      ${note ? `<span class="desktop-day-summary">${escapeHtml(note)}</span>` : ''}
+      ${taskCount ? `<span class="desktop-day-task-count">${uiLanguage === 'en' ? `${taskCount} task${taskCount === 1 ? '' : 's'}` : `タスク ${taskCount}件`}</span>` : ''}
+    </button>`;
+  }
+  calendarHtml += Array.from({ length: (7 - ((firstOffset + days) % 7)) % 7 }, () => '<div class="desktop-calendar-empty" aria-hidden="true"></div>').join('');
+  grid.innerHTML = calendarHtml;
+
+  const updateSelectedDay = async date => {
+    state.selectedDate = date;
+    grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.classList.toggle('selected', button.dataset.date === date));
+    const entry = byDate.get(date) || await DB.getDaily(date);
+    const parsed = new Date(`${date}T00:00:00`);
+    const holiday = holidays.get(date);
+    dateHeading.textContent = new Intl.DateTimeFormat(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(parsed);
+    const holidayEl = document.getElementById('desktop-selected-holiday');
+    holidayEl.textContent = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
+    holidayEl.hidden = !holiday;
+    document.getElementById('desktop-selected-star').hidden = !entry.star;
+    document.getElementById('desktop-plan-textarea').value = entry.plan || '';
+    document.getElementById('desktop-actual-textarea').value = entry.actual || '';
+  };
+  grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.addEventListener('click', () => updateSelectedDay(button.dataset.date)));
+  const saveSelectedField = debounce(async (date, field, value) => {
+    const entry = await DB.getDaily(date);
+    entry[field] = value;
+    await DB.saveDaily(entry);
+    if (date.startsWith(monthStr)) {
+      const target = grid.querySelector(`[data-date="${date}"]`);
+      if (target) {
+        const preview = target.querySelector('.desktop-day-summary');
+        const text = (entry.plan || entry.actual || entry.note || '').split('\n')[0].trim();
+        if (preview) preview.textContent = text;
+        else if (text) target.insertAdjacentHTML('beforeend', `<span class="desktop-day-summary">${escapeHtml(text)}</span>`);
+      }
+    }
+  }, 400);
+  ['plan', 'actual'].forEach(field => {
+    const textarea = document.getElementById(`desktop-${field}-textarea`);
+    textarea.oninput = () => saveSelectedField(state.selectedDate, field, textarea.value);
+  });
+  updateSelectedDay(state.selectedDate);
+
+  const upcoming = document.getElementById('desktop-upcoming-tasks');
+  const start = formatDate(new Date());
+  const endDate = new Date(); endDate.setDate(endDate.getDate() + 7);
+  const end = formatDate(endDate);
+  const dueTasks = allTasks.filter(task => !task.completed && task.dueDate && task.dueDate <= end)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5);
+  const labels = uiLanguage === 'en'
+    ? { empty: 'No upcoming tasks', overdue: 'Overdue', today: 'Today', tomorrow: 'Tomorrow' }
+    : { empty: '期限の近いタスクはありません', overdue: '期限超過', today: '今日', tomorrow: '明日' };
+  upcoming.innerHTML = dueTasks.length ? dueTasks.map(task => {
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const dueLabel = task.dueDate < start ? labels.overdue : task.dueDate === start ? labels.today :
+      task.dueDate === formatDate(tomorrow) ? labels.tomorrow : '';
+    const taskText = escapeHtml(task.text || '');
+    const checkLabel = uiLanguage === 'en' ? `Mark ${taskText || 'task'} complete` : `${taskText || 'タスク'}を完了`;
+    const dateLabel = new Intl.DateTimeFormat(uiLanguage === 'en' ? 'en' : 'ja', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    }).format(new Date(`${task.dueDate}T00:00:00`));
+    const changeDateLabel = uiLanguage === 'en' ? `Change due date for ${taskText || 'task'}` : `${taskText || 'タスク'}の期限を変更`;
+    const project = projectMap.get(task.projectId);
+    const goal = project ? goalMap.get(project.goalId) : null;
+    const dateControl = `<label class="desktop-upcoming-date-control" title="${changeDateLabel}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <input type="date" class="desktop-upcoming-date-input" data-task-id="${task.id}" value="${task.dueDate}" aria-label="${changeDateLabel}">
+    </label>`;
+    const projectLink = project && goal ? `<button class="desktop-upcoming-project-link" data-task-id="${task.id}" type="button" title="${uiLanguage === 'en' ? 'Open project' : 'プロジェクトを開く'}" aria-label="${escapeHtml(project.title || (uiLanguage === 'en' ? 'Untitled project' : '名称未設定のプロジェクト'))}${uiLanguage === 'en' ? 'を開く' : 'を開く'}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
+      </svg>
+    </button>` : '';
+    return `<div class="desktop-upcoming-task"><input type="checkbox" data-task-id="${task.id}" aria-label="${checkLabel}"><div class="desktop-upcoming-task-body"><span class="desktop-upcoming-task-text">${taskText}</span><span class="desktop-upcoming-task-meta">${escapeHtml(dateLabel)}${dueLabel ? ` · ${escapeHtml(dueLabel)}` : ''}</span></div>${dateControl}${projectLink}</div>`;
+  }).join('') : `<p class="desktop-upcoming-empty">${labels.empty}</p>`;
+  upcoming.querySelectorAll('input[type="checkbox"][data-task-id]').forEach(input => input.addEventListener('change', async () => {
+    const task = allTasks.find(item => item.id === Number(input.dataset.taskId));
+    if (!task) return;
+    task.completed = input.checked;
+    await DB.updateGoalTask(task);
+    await loadMonthlyView();
+  }));
+  upcoming.querySelectorAll('.desktop-upcoming-date-input').forEach(input => input.addEventListener('change', async () => {
+    const task = allTasks.find(item => item.id === Number(input.dataset.taskId));
+    if (!task) return;
+    task.dueDate = input.value;
+    await DB.updateGoalTask(task);
+    await loadMonthlyView();
+  }));
+  upcoming.querySelectorAll('.desktop-upcoming-project-link').forEach(button => button.addEventListener('click', () => {
+    const task = allTasks.find(item => item.id === Number(button.dataset.taskId));
+    const project = task && projectMap.get(task.projectId);
+    if (!project || !goalMap.has(project.goalId)) return;
+    state.currentGoalId = project.goalId;
+    state.currentProjectId = project.id;
+    navigate('goal-detail');
+  }));
+  document.querySelectorAll('[data-label-ja][data-label-en]').forEach(el => {
+    el.textContent = uiLanguage === 'en' ? el.dataset.labelEn : el.dataset.labelJa;
+  });
+  const languageSelect = document.getElementById('desktop-language-select');
+  if (languageSelect) languageSelect.value = uiLanguage;
 }
 
 /* ============================================================
@@ -1407,6 +1628,7 @@ function initTasksView() {
 async function loadSettingsView() {
   await loadTemplateList();
   await loadCategoryList();
+  document.getElementById('ui-language-select').value = uiLanguage;
   document.getElementById('dark-mode-select').value = await DB.getSetting('darkMode', 'system');
   await checkStorageStatus();
   updateHeader();
@@ -2095,6 +2317,12 @@ async function init() {
   // ヘッダーナビ
   document.getElementById('btn-prev').addEventListener('click', goBack);
   document.getElementById('btn-next').addEventListener('click', goForward);
+  window.addEventListener('resize', updateHeader);
+  const languageSelect = document.getElementById('desktop-language-select');
+  uiLanguage = await DB.getSetting('uiLanguage', 'en');
+  languageSelect.value = uiLanguage;
+  languageSelect.addEventListener('change', () => setUiLanguage(languageSelect.value));
+  document.getElementById('ui-language-select').addEventListener('change', event => setUiLanguage(event.target.value));
 
   // FAB
   document.getElementById('fab-today').addEventListener('click', () => {

@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'life-todo-v3';
+const CACHE_NAME = 'life-todo-v4';
 const ASSETS = [
   './',
   './index.html',

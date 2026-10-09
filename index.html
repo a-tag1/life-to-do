@@ -20,6 +20,10 @@
   <header id="app-header">
     <button id="btn-prev" class="nav-btn" aria-label="前へ">‹</button>
     <h1 id="header-title">読み込み中...</h1>
+    <select id="desktop-language-select" aria-label="Display language">
+      <option value="en">English</option>
+      <option value="ja">日本語</option>
+    </select>
     <button id="btn-next" class="nav-btn" aria-label="次へ">›</button>
   </header>
 
@@ -66,7 +70,32 @@
 
     <!-- [2] 今月ビュー -->
     <section id="view-monthly" class="view">
-      <div id="monthly-days" class="view-content"></div>
+      <div id="monthly-days" class="view-content monthly-mobile-layout"></div>
+      <div class="desktop-monthly-layout">
+        <section class="desktop-calendar-panel" aria-label="Monthly calendar">
+          <div id="desktop-calendar-weekdays" class="desktop-calendar-weekdays"></div>
+          <div id="desktop-calendar-grid" class="desktop-calendar-grid"></div>
+        </section>
+        <aside class="desktop-day-panel">
+          <div class="desktop-day-detail">
+            <div class="desktop-panel-heading">
+              <div>
+                <h2 id="desktop-selected-date"></h2>
+                <p id="desktop-selected-holiday" class="desktop-holiday-label" hidden></p>
+              </div>
+              <span id="desktop-selected-star" aria-label="Starred day" hidden>★</span>
+            </div>
+            <label for="desktop-plan-textarea" class="desktop-field-label" data-label-ja="予定" data-label-en="PLAN">予定</label>
+            <textarea id="desktop-plan-textarea" class="desktop-schedule-input" rows="4"></textarea>
+            <label for="desktop-actual-textarea" class="desktop-field-label" data-label-ja="実績" data-label-en="ACTUAL">実績</label>
+            <textarea id="desktop-actual-textarea" class="desktop-schedule-input" rows="5"></textarea>
+          </div>
+          <section class="desktop-upcoming-panel">
+            <h2 data-label-ja="期限の近いタスク" data-label-en="UPCOMING TASKS">UPCOMING TASKS</h2>
+            <div id="desktop-upcoming-tasks"></div>
+          </section>
+        </aside>
+      </div>
     </section>
 
     <!-- [3] 年間ビュー -->
@@ -168,6 +197,13 @@
         <div class="settings-section">
           <div class="section-title">表示設定</div>
           <div class="settings-row">
+            <label for="ui-language-select">表示言語</label>
+            <select id="ui-language-select">
+              <option value="ja">日本語</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div class="settings-row">
             <label for="dark-mode-select">ダークモード</label>
             <select id="dark-mode-select">
               <option value="system">自動（OS設定連動）</option>
@@ -231,7 +267,7 @@
 
         <div class="app-version">
           <span>LifeToDo</span>
-          <span><span id="version-number">v1.6.2</span> &nbsp;·&nbsp; <span id="version-date">2026/10/8</span></span>
+          <span><span id="version-number">v1.7.0</span> &nbsp;·&nbsp; <span id="version-date">2026/10/9</span></span>
         </div>
 
       </div>
