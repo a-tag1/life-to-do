@@ -1568,6 +1568,11 @@ async function renderTaskList() {
     const goal = project ? goalMap.get(project.goalId) : null;
     const category = categoryMap.get(goal?.categoryId);
     const label = [goal?.title, project?.title].filter(Boolean).join(' / ');
+    const projectName = project?.title || (uiLanguage === 'en' ? 'Untitled project' : '名称未設定のプロジェクト');
+    const goalName = goal?.title || (uiLanguage === 'en' ? 'Untitled vision' : '名称未設定のビジョン');
+    const openProjectLabel = uiLanguage === 'en'
+      ? `Open ${goalName} / ${projectName}`
+      : `${goalName} / ${projectName}を開く`;
     return `
       <div class="task-item${t.completed ? ' completed-item' : ''}${category ? ' has-category' : ''}" data-id="${t.id}"${categoryStyle(category)}>
         <input type="checkbox" class="task-checkbox" data-id="${t.id}"${t.completed ? ' checked' : ''}>
@@ -1576,6 +1581,11 @@ async function renderTaskList() {
           <textarea class="task-text${t.completed ? ' completed' : ''}" data-id="${t.id}" rows="1" placeholder="タスクを入力..."></textarea>
           <input type="date" class="task-due-input" data-id="${t.id}" value="${t.dueDate || ''}">
         </div>
+        ${project && goal ? `<button class="task-goal-link" data-id="${t.id}" type="button" title="${escapeHtml(openProjectLabel)}" aria-label="${escapeHtml(openProjectLabel)}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
+          </svg>
+        </button>` : ''}
       </div>`;
   };
 
@@ -1593,6 +1603,18 @@ async function renderTaskList() {
       </section>` : ''}`;
 
   const taskMap = new Map(tasks.map(t => [t.id, t]));
+
+  container.querySelectorAll('.task-goal-link').forEach(button => {
+    button.addEventListener('click', () => {
+      const task = taskMap.get(parseInt(button.dataset.id));
+      const project = task && projectMap.get(task.projectId);
+      const goal = project && goalMap.get(project.goalId);
+      if (!project || !goal) return;
+      state.currentGoalId = goal.id;
+      state.currentProjectId = project.id;
+      navigate('goal-detail');
+    });
+  });
 
   // テキスト値をJSで設定
   container.querySelectorAll('.task-text').forEach(ta => {

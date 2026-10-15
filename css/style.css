@@ -746,6 +746,13 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
 .task-item.has-category { border-left:3px solid var(--category-color); padding-left:8px; }
 .task-item.has-category .task-source { color:var(--category-color); }
 .task-item.completed-item { opacity:0.55; }
+.task-goal-link {
+  flex:0 0 32px; width:32px; height:32px; padding:6px; display:grid; place-items:center;
+  border:1px solid var(--sep); border-radius:var(--r-sm); background:var(--inset);
+  color:var(--text-2); cursor:pointer;
+}
+.task-goal-link:hover { border-color:var(--accent); color:var(--accent); }
+.task-goal-link svg { width:16px; height:16px; }
 .completed-tasks-section { margin-top:12px; border-top:1px solid var(--sep); }
 .completed-tasks-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:12px 0; color:var(--text-sub); font:inherit; text-align:left; background:none; border:none; cursor:pointer; }
 .completed-tasks-chevron { font-size:20px; line-height:1; transition:transform var(--ease); }
