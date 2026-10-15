@@ -646,6 +646,7 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   .desktop-upcoming-task { display:flex; align-items:flex-start; gap:8px; padding:9px 0; border-top:1px solid var(--sep); }
   .desktop-upcoming-task input { flex:none; margin-top:3px; accent-color:var(--accent); }
   .desktop-upcoming-task-body { min-width:0; flex:1; }
+  .desktop-upcoming-task-source { display:block; margin-bottom:2px; color:var(--text-2); font-size:10px; line-height:1.3; }
   .desktop-upcoming-task-text { display:block; overflow-wrap:anywhere; font-size:12px; line-height:1.4; }
   .desktop-upcoming-task-meta { display:block; margin-top:3px; color:var(--text-2); font-size:10px; }
   .desktop-upcoming-date-control {

@@ -709,7 +709,10 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
     note.placeholder = uiLanguage === 'en' ? 'Add a note...' : 'メモを入力...';
     note.setAttribute('aria-label', uiLanguage === 'en' ? 'Daily note' : '日別メモ');
   };
-  grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.addEventListener('click', () => updateSelectedDay(button.dataset.date)));
+  grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.addEventListener('click', () => {
+    updateSelectedDay(button.dataset.date);
+    updateUpcomingTasks(button.dataset.date, true);
+  }));
   const noteTextarea = document.getElementById('desktop-note-textarea');
   const noteSaveTimers = new Map();
   noteTextarea.oninput = () => {
@@ -742,61 +745,56 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
   updateSelectedDay(state.selectedDate);
 
   const upcoming = document.getElementById('desktop-upcoming-tasks');
-  const start = formatDate(new Date());
-  const endDate = new Date(); endDate.setDate(endDate.getDate() + 7);
-  const end = formatDate(endDate);
-  const dueTasks = allTasks.filter(task => !task.completed && task.dueDate && task.dueDate <= end)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5);
-  const labels = uiLanguage === 'en'
-    ? { empty: 'No upcoming tasks', overdue: 'Overdue', today: 'Today', tomorrow: 'Tomorrow' }
-    : { empty: '期限の近いタスクはありません', overdue: '期限超過', today: '今日', tomorrow: '明日' };
-  upcoming.innerHTML = dueTasks.length ? dueTasks.map(task => {
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    const dueLabel = task.dueDate < start ? labels.overdue : task.dueDate === start ? labels.today :
-      task.dueDate === formatDate(tomorrow) ? labels.tomorrow : '';
-    const taskText = escapeHtml(task.text || '');
-    const checkLabel = uiLanguage === 'en' ? `Mark ${taskText || 'task'} complete` : `${taskText || 'タスク'}を完了`;
-    const dateLabel = new Intl.DateTimeFormat(uiLanguage === 'en' ? 'en' : 'ja', {
-      year: 'numeric', month: 'short', day: 'numeric'
-    }).format(new Date(`${task.dueDate}T00:00:00`));
-    const changeDateLabel = uiLanguage === 'en' ? `Change due date for ${taskText || 'task'}` : `${taskText || 'タスク'}の期限を変更`;
-    const project = projectMap.get(task.projectId);
-    const goal = project ? goalMap.get(project.goalId) : null;
-    const dateControl = `<label class="desktop-upcoming-date-control" title="${changeDateLabel}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-      </svg>
-      <input type="date" class="desktop-upcoming-date-input" data-task-id="${task.id}" value="${task.dueDate}" aria-label="${changeDateLabel}">
-    </label>`;
-    const projectLink = project && goal ? `<button class="desktop-upcoming-project-link" data-task-id="${task.id}" type="button" title="${uiLanguage === 'en' ? 'Open project' : 'プロジェクトを開く'}" aria-label="${escapeHtml(project.title || (uiLanguage === 'en' ? 'Untitled project' : '名称未設定のプロジェクト'))}${uiLanguage === 'en' ? 'を開く' : 'を開く'}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
-      </svg>
-    </button>` : '';
-    return `<div class="desktop-upcoming-task"><input type="checkbox" data-task-id="${task.id}" aria-label="${checkLabel}"><div class="desktop-upcoming-task-body"><span class="desktop-upcoming-task-text">${taskText}</span><span class="desktop-upcoming-task-meta">${escapeHtml(dateLabel)}${dueLabel ? ` · ${escapeHtml(dueLabel)}` : ''}</span></div>${dateControl}${projectLink}</div>`;
-  }).join('') : `<p class="desktop-upcoming-empty">${labels.empty}</p>`;
-  upcoming.querySelectorAll('input[type="checkbox"][data-task-id]').forEach(input => input.addEventListener('change', async () => {
-    const task = allTasks.find(item => item.id === Number(input.dataset.taskId));
-    if (!task) return;
-    task.completed = input.checked;
-    await DB.updateGoalTask(task);
-    await loadMonthlyView();
-  }));
-  upcoming.querySelectorAll('.desktop-upcoming-date-input').forEach(input => input.addEventListener('change', async () => {
-    const task = allTasks.find(item => item.id === Number(input.dataset.taskId));
-    if (!task) return;
-    task.dueDate = input.value;
-    await DB.updateGoalTask(task);
-    await loadMonthlyView();
-  }));
-  upcoming.querySelectorAll('.desktop-upcoming-project-link').forEach(button => button.addEventListener('click', () => {
-    const task = allTasks.find(item => item.id === Number(button.dataset.taskId));
-    const project = task && projectMap.get(task.projectId);
-    if (!project || !goalMap.has(project.goalId)) return;
-    state.currentGoalId = project.goalId;
-    state.currentProjectId = project.id;
-    navigate('goal-detail');
-  }));
+  const updateUpcomingTasks = (selectedDate, scrollToTask = false) => {
+    const selectedTasks = allTasks.filter(task => !task.completed && task.dueDate === selectedDate)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const emptyLabel = uiLanguage === 'en' ? 'No unfinished tasks for this date' : 'この日の未完了タスクはありません';
+    upcoming.innerHTML = selectedTasks.length ? selectedTasks.map(task => {
+      const project = projectMap.get(task.projectId);
+      const goal = project ? goalMap.get(project.goalId) : null;
+      const sourceLabel = [goal?.title, project?.title].filter(Boolean).join(' / ');
+      const source = sourceLabel ? `<span class="desktop-upcoming-task-source">${escapeHtml(sourceLabel)}</span>` : '';
+      const taskText = escapeHtml(task.text || '');
+      const checkLabel = uiLanguage === 'en' ? `Mark ${taskText || 'task'} complete` : `${taskText || 'タスク'}を完了`;
+      const changeDateLabel = uiLanguage === 'en' ? `Change due date for ${taskText || 'task'}` : `${taskText || 'タスク'}の期限を変更`;
+      const dateControl = `<label class="desktop-upcoming-date-control" title="${changeDateLabel}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <input type="date" class="desktop-upcoming-date-input" data-task-id="${task.id}" value="${task.dueDate}" aria-label="${changeDateLabel}">
+      </label>`;
+      const projectLink = project && goal ? `<button class="desktop-upcoming-project-link" data-task-id="${task.id}" type="button" title="${uiLanguage === 'en' ? 'Open project' : 'プロジェクトを開く'}" aria-label="${escapeHtml(project.title || (uiLanguage === 'en' ? 'Untitled project' : '名称未設定のプロジェクト'))}${uiLanguage === 'en' ? 'を開く' : 'を開く'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>
+        </svg>
+      </button>` : '';
+      return `<div class="desktop-upcoming-task"><input type="checkbox" data-task-id="${task.id}" aria-label="${checkLabel}"><div class="desktop-upcoming-task-body">${source}<span class="desktop-upcoming-task-text">${taskText}</span></div>${dateControl}${projectLink}</div>`;
+    }).join('') : `<p class="desktop-upcoming-empty">${emptyLabel}</p>`;
+    upcoming.querySelectorAll('input[type="checkbox"][data-task-id]').forEach(input => input.addEventListener('change', async () => {
+      const task = allTasks.find(item => item.id === Number(input.dataset.taskId));
+      if (!task) return;
+      task.completed = input.checked;
+      await DB.updateGoalTask(task);
+      await loadMonthlyView();
+    }));
+    upcoming.querySelectorAll('.desktop-upcoming-date-input').forEach(input => input.addEventListener('change', async () => {
+      const task = allTasks.find(item => item.id === Number(input.dataset.taskId));
+      if (!task) return;
+      task.dueDate = input.value;
+      await DB.updateGoalTask(task);
+      await loadMonthlyView();
+    }));
+    upcoming.querySelectorAll('.desktop-upcoming-project-link').forEach(button => button.addEventListener('click', () => {
+      const task = allTasks.find(item => item.id === Number(button.dataset.taskId));
+      const project = task && projectMap.get(task.projectId);
+      if (!project || !goalMap.has(project.goalId)) return;
+      state.currentGoalId = project.goalId;
+      state.currentProjectId = project.id;
+      navigate('goal-detail');
+    }));
+    if (scrollToTask) upcoming.querySelector('.desktop-upcoming-task')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+  updateUpcomingTasks(state.selectedDate);
   document.querySelectorAll('[data-label-ja][data-label-en]').forEach(el => {
     el.textContent = uiLanguage === 'en' ? el.dataset.labelEn : el.dataset.labelJa;
   });
