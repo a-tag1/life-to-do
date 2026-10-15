@@ -651,15 +651,28 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
     const weekday = new Date(year, month, day).getDay();
     const entry = byDate.get(date) || {};
     const holiday = holidays.get(date);
-    const taskCount = allTasks.filter(task => task.dueDate === date && !task.completed).length;
+    const dayTasks = allTasks.filter(task => task.dueDate === date && !task.completed);
+    const taskLineLimit = holiday ? 3 : 4;
+    const visibleTaskLimit = dayTasks.length > taskLineLimit ? taskLineLimit - 1 : taskLineLimit;
+    const visibleTasks = dayTasks.slice(0, visibleTaskLimit);
+    const remainingTaskCount = dayTasks.length - visibleTasks.length;
     const classes = ['desktop-calendar-day', date === todayStr ? 'today' : '', date === state.selectedDate ? 'selected' : '',
       weekday === 0 ? 'sunday' : '', weekday === 6 ? 'saturday' : '', holiday ? 'holiday' : ''].filter(Boolean).join(' ');
     const holidayLabel = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
     const ariaDate = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(year, month, day));
-    calendarHtml += `<button type="button" class="${classes}" data-date="${date}" aria-label="${escapeHtml(`${ariaDate}${holidayLabel ? `, ${holidayLabel}` : ''}`)}">
+    const taskNames = visibleTasks.map(task => task.text || (uiLanguage === 'en' ? 'Untitled task' : '名称未設定'));
+    const moreTasksLabel = remainingTaskCount
+      ? (uiLanguage === 'en' ? `${remainingTaskCount} more` : `他 ${remainingTaskCount}件`)
+      : '';
+    const taskSummary = [...taskNames, moreTasksLabel].filter(Boolean).join(', ');
+    const taskListHtml = dayTasks.length ? `<span class="desktop-day-tasks">
+      ${visibleTasks.map((task, index) => `<span class="desktop-day-task-name" title="${escapeHtml(taskNames[index])}">${escapeHtml(taskNames[index])}</span>`).join('')}
+      ${moreTasksLabel ? `<span class="desktop-day-task-more">${escapeHtml(moreTasksLabel)}</span>` : ''}
+    </span>` : '';
+    calendarHtml += `<button type="button" class="${classes}" data-date="${date}" aria-label="${escapeHtml(`${ariaDate}${holidayLabel ? `, ${holidayLabel}` : ''}${taskSummary ? `, ${taskSummary}` : ''}`)}">
       <span class="desktop-day-number-row"><span class="desktop-day-number">${day}</span>${entry.star ? '<span class="desktop-day-star">★</span>' : ''}</span>
       ${holidayLabel ? `<span class="desktop-day-holiday">${escapeHtml(holidayLabel)}</span>` : ''}
-      ${taskCount ? `<span class="desktop-day-task-count">${uiLanguage === 'en' ? `${taskCount} task${taskCount === 1 ? '' : 's'}` : `タスク ${taskCount}件`}</span>` : ''}
+      ${taskListHtml}
     </button>`;
   }
   calendarHtml += Array.from({ length: (7 - ((firstOffset + days) % 7)) % 7 }, () => '<div class="desktop-calendar-empty" aria-hidden="true"></div>').join('');
