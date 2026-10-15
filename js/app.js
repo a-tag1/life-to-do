@@ -659,6 +659,7 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
     const classes = ['desktop-calendar-day', date === todayStr ? 'today' : '', date === state.selectedDate ? 'selected' : '',
       weekday === 0 ? 'sunday' : '', weekday === 6 ? 'saturday' : '', holiday ? 'holiday' : ''].filter(Boolean).join(' ');
     const holidayLabel = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
+    const memoText = typeof entry.note === 'string' ? entry.note.trim() : '';
     const ariaDate = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(year, month, day));
     const taskNames = visibleTasks.map(task => task.text || (uiLanguage === 'en' ? 'Untitled task' : '名称未設定'));
     const moreTasksLabel = remainingTaskCount
@@ -669,9 +670,9 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
       ${visibleTasks.map((task, index) => `<span class="desktop-day-task-name" title="${escapeHtml(taskNames[index])}">${escapeHtml(taskNames[index])}</span>`).join('')}
       ${moreTasksLabel ? `<span class="desktop-day-task-more">${escapeHtml(moreTasksLabel)}</span>` : ''}
     </span>` : '';
-    calendarHtml += `<button type="button" class="${classes}" data-date="${date}" aria-label="${escapeHtml(`${ariaDate}${holidayLabel ? `, ${holidayLabel}` : ''}${taskSummary ? `, ${taskSummary}` : ''}`)}">
+    calendarHtml += `<button type="button" class="${classes}" data-date="${date}" aria-label="${escapeHtml(`${ariaDate}${holidayLabel ? `, ${holidayLabel}` : ''}${memoText ? `, ${memoText}` : ''}${taskSummary ? `, ${taskSummary}` : ''}`)}">
       <span class="desktop-day-number-row"><span class="desktop-day-number">${day}</span>${entry.star ? '<span class="desktop-day-star">★</span>' : ''}</span>
-      ${holidayLabel ? `<span class="desktop-day-holiday">${escapeHtml(holidayLabel)}</span>` : ''}
+      ${memoText ? `<span class="desktop-day-memo" title="${escapeHtml(memoText)}">${escapeHtml(memoText)}</span>` : ''}
       ${taskListHtml}
     </button>`;
   }

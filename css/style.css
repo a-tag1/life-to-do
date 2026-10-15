@@ -611,7 +611,7 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   .desktop-day-number-row { display:flex; align-items:center; justify-content:space-between; gap:4px; }
   .desktop-day-number { font-size:13px; font-weight:600; }
   .desktop-day-star { color:var(--star-color); font-size:12px; }
-  .desktop-day-holiday { overflow:hidden; color:var(--sunday); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+  .desktop-day-memo { display:block; min-width:0; overflow:hidden; color:var(--text-2); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
   .desktop-day-tasks { display:block; min-width:0; max-height:44px; overflow:hidden; color:var(--accent); font-size:10px; font-weight:600; line-height:11px; }
   .desktop-day-task-name, .desktop-day-task-more { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .desktop-day-task-more { color:var(--text-2); }
