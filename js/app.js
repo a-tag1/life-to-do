@@ -986,6 +986,10 @@ async function renderGoalList() {
     const total = tasks.length;
     const done = tasks.filter(t => t.completed).length;
     const pct = total ? Math.round(done / total * 100) : 0;
+    const today = formatDate(new Date());
+    const reviewLabel = goal.nextReviewAt
+      ? goal.nextReviewAt <= today ? '見直し時期' : `次回 ${goal.nextReviewAt.slice(5).replace('-', '/')}`
+      : '';
 
     return `
       <div class="goal-card${goal.completed ? ' completed-item' : ''}${categoryMap.has(goal.categoryId) ? ' has-category' : ''}" data-id="${goal.id}"${categoryStyle(categoryMap.get(goal.categoryId))}>
@@ -997,6 +1001,7 @@ async function renderGoalList() {
             ${categoryMap.has(goal.categoryId) ? `<span class="goal-category-label">${escapeHtml(categoryMap.get(goal.categoryId).name)}</span>` : ''}
             <span class="goal-projects-count">${projects.length}件のプロジェクト</span>
             <span class="goal-task-count">${total ? `${done}/${total}タスク` : 'タスクなし'}</span>
+            ${reviewLabel ? `<span class="goal-review-card-status${goal.nextReviewAt <= today ? ' is-due' : ''}">${reviewLabel}</span>` : ''}
           </div>
           ${total ? `
           <div class="goal-progress-track">
@@ -1165,6 +1170,22 @@ function updateGoalNotePreview(value) {
   preview.classList.toggle('is-empty', !text);
 }
 
+function updateGoalReviewStatus(goal) {
+  const status = document.getElementById('goal-review-status');
+  const button = document.getElementById('btn-goal-review');
+  const today = formatDate(new Date());
+  if (goal.nextReviewAt) {
+    status.textContent = goal.nextReviewAt <= today
+      ? `見直し予定日: ${goal.nextReviewAt}`
+      : `次回の見直し: ${goal.nextReviewAt}`;
+  } else if (goal.lastReviewedAt) {
+    status.textContent = `前回の見直し: ${goal.lastReviewedAt}`;
+  } else {
+    status.textContent = 'プロジェクトをまたいでタスクを整理';
+  }
+  button.classList.toggle('is-due', !!goal.nextReviewAt && goal.nextReviewAt <= today);
+}
+
 async function loadGoalDetailView() {
   const [goal, categories] = await Promise.all([DB.getGoal(state.currentGoalId), DB.getCategories()]);
   if (!goal) { navigate('vision'); return; }
@@ -1180,6 +1201,9 @@ async function loadGoalDetailView() {
   updateGoalNotePreview(noteTA.value);
   autoResize(noteTA);
   document.getElementById('goal-detail-category-select').innerHTML = categoryOptions(categories, goal.categoryId);
+  document.getElementById('goal-review-panel').hidden = true;
+  document.getElementById('btn-goal-review').setAttribute('aria-expanded', 'false');
+  updateGoalReviewStatus(goal);
 
   await renderProjectList();
 }
@@ -1223,6 +1247,14 @@ function initGoalDetailView() {
     await renderProjectList();
   });
 
+  document.getElementById('btn-goal-review').addEventListener('click', async () => {
+    const panel = document.getElementById('goal-review-panel');
+    const button = document.getElementById('btn-goal-review');
+    panel.hidden = !panel.hidden;
+    button.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) await renderGoalReviewPanel();
+  });
+
   document.getElementById('btn-add-project').addEventListener('click', async () => {
     if (!state.currentGoalId) return;
     const newId = await DB.addProject({ goalId: state.currentGoalId, title: '', order: Date.now(), completed: false });
@@ -1245,6 +1277,80 @@ function initGoalDetailView() {
     clearTimeout(projectMoveToastTimer);
     document.getElementById('project-move-toast').classList.add('hidden');
     await undo();
+  });
+}
+
+async function renderGoalReviewPanel() {
+  const container = document.getElementById('goal-review-panel');
+  const goal = await DB.getGoal(state.currentGoalId);
+  if (!goal) return;
+
+  const projects = await DB.getProjectsForGoal(state.currentGoalId);
+  const taskGroups = await Promise.all(projects.map(async project => ({
+    project,
+    tasks: (await DB.getTasksForProject(project.id)).filter(task => !task.completed)
+  })));
+  const activeGroups = taskGroups.filter(group => group.tasks.length);
+  const taskMap = new Map(activeGroups.flatMap(group => group.tasks.map(task => [task.id, task])));
+  const taskCount = taskMap.size;
+
+  container.innerHTML = `
+    <div class="goal-review-panel-heading">
+      <div>
+        <h2>今回の見直し</h2>
+        <p>未完了タスクをまとめて確認し、必要なら内容や期限を更新できます。</p>
+      </div>
+      <span class="goal-review-total">${taskCount}件</span>
+    </div>
+    ${activeGroups.length ? activeGroups.map(group => `
+      <section class="goal-review-project">
+        <h3>${escapeHtml(group.project.title || '名称未設定のプロジェクト')}</h3>
+        ${group.tasks.map(task => `
+          <div class="goal-review-task" data-review-task-id="${task.id}">
+            <input class="goal-review-task-complete" type="checkbox" aria-label="タスクを完了にする">
+            <div class="goal-review-task-fields">
+              <input class="goal-review-task-text" type="text" value="${escapeHtml(task.text || '')}" placeholder="タスク名を入力">
+              <input class="goal-review-task-due" type="date" value="${task.dueDate || ''}" aria-label="期限">
+            </div>
+          </div>`).join('')}
+      </section>`).join('') : `
+      <p class="goal-review-empty">未完了タスクはありません。プロジェクトに次の一歩を追加できます。</p>`}
+    <div class="goal-review-fields">
+      <label class="goal-review-field">
+        <span>今回の気づき・方針</span>
+        <textarea id="goal-review-note" rows="3" placeholder="続ける理由や、やり方を変えたい点など">${escapeHtml(goal.reviewNote || '')}</textarea>
+      </label>
+      <label class="goal-review-field goal-review-date-field">
+        <span>次回見直し日</span>
+        <input id="goal-review-next-date" type="date" value="${goal.nextReviewAt || ''}">
+      </label>
+      <button id="btn-save-goal-review" class="btn-save-goal-review" type="button">今回の見直しを記録</button>
+      <span id="goal-review-save-status" class="goal-review-save-status" aria-live="polite"></span>
+    </div>`;
+
+  container.querySelector('#btn-save-goal-review').addEventListener('click', async event => {
+    const saveButton = event.currentTarget;
+    saveButton.disabled = true;
+    const rows = [...container.querySelectorAll('.goal-review-task')];
+    for (const row of rows) {
+      const task = taskMap.get(Number(row.dataset.reviewTaskId));
+      if (!task) continue;
+      task.completed = row.querySelector('.goal-review-task-complete').checked;
+      task.text = row.querySelector('.goal-review-task-text').value.trim();
+      task.dueDate = row.querySelector('.goal-review-task-due').value;
+      await DB.updateGoalTask(task);
+    }
+
+    const updatedGoal = await DB.getGoal(state.currentGoalId);
+    updatedGoal.lastReviewedAt = formatDate(new Date());
+    updatedGoal.reviewNote = container.querySelector('#goal-review-note').value.trim();
+    updatedGoal.nextReviewAt = container.querySelector('#goal-review-next-date').value;
+    await DB.updateGoal(updatedGoal);
+    updateGoalReviewStatus(updatedGoal);
+    await renderProjectList();
+    await renderGoalList();
+    await renderGoalReviewPanel();
+    document.getElementById('goal-review-save-status').textContent = '見直しを記録しました';
   });
 }
 
