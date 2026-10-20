@@ -986,6 +986,7 @@ async function renderGoalList() {
     const total = tasks.length;
     const done = tasks.filter(t => t.completed).length;
     const pct = total ? Math.round(done / total * 100) : 0;
+    const focusedTotal = tasks.filter(task => !task.completed && (goal.focusTaskIds || []).includes(task.id)).length;
     const today = formatDate(new Date());
     const reviewLabel = goal.nextReviewAt
       ? goal.nextReviewAt <= today ? '見直し時期' : `次回 ${goal.nextReviewAt.slice(5).replace('-', '/')}`
@@ -1001,6 +1002,7 @@ async function renderGoalList() {
             ${categoryMap.has(goal.categoryId) ? `<span class="goal-category-label">${escapeHtml(categoryMap.get(goal.categoryId).name)}</span>` : ''}
             <span class="goal-projects-count">${projects.length}件のプロジェクト</span>
             <span class="goal-task-count">${total ? `${done}/${total}タスク` : 'タスクなし'}</span>
+            ${focusedTotal ? `<span class="goal-review-card-status">重点 ${focusedTotal}件</span>` : ''}
             ${reviewLabel ? `<span class="goal-review-card-status${goal.nextReviewAt <= today ? ' is-due' : ''}">${reviewLabel}</span>` : ''}
           </div>
           ${total ? `
@@ -1291,14 +1293,19 @@ async function renderGoalReviewPanel() {
     tasks: (await DB.getTasksForProject(project.id)).filter(task => !task.completed)
   })));
   const activeGroups = taskGroups.filter(group => group.tasks.length);
-  const taskMap = new Map(activeGroups.flatMap(group => group.tasks.map(task => [task.id, task])));
-  const taskCount = taskMap.size;
+  const tasks = activeGroups.flatMap(group => group.tasks);
+  const taskCount = tasks.length;
+  const activeTaskIds = new Set(tasks.map(task => task.id));
+  const focusedTaskIds = [...new Set((goal.focusTaskIds || []).map(Number))]
+    .filter(id => activeTaskIds.has(id))
+    .slice(0, 3);
+  const focusedTaskSet = new Set(focusedTaskIds);
 
   container.innerHTML = `
     <div class="goal-review-panel-heading">
       <div>
-        <h2>今回の見直し</h2>
-        <p>未完了タスクをまとめて確認し、必要なら内容や期限を更新できます。</p>
+        <h2>次回までの重点</h2>
+        <p>${taskCount}件の未完了タスクから、次回までの重点を最大3件選びます。</p>
       </div>
       <span class="goal-review-total">${taskCount}件</span>
     </div>
@@ -1307,14 +1314,18 @@ async function renderGoalReviewPanel() {
         <h3>${escapeHtml(group.project.title || '名称未設定のプロジェクト')}</h3>
         ${group.tasks.map(task => `
           <div class="goal-review-task" data-review-task-id="${task.id}">
-            <input class="goal-review-task-complete" type="checkbox" aria-label="タスクを完了にする">
-            <div class="goal-review-task-fields">
-              <input class="goal-review-task-text" type="text" value="${escapeHtml(task.text || '')}" placeholder="タスク名を入力">
-              <input class="goal-review-task-due" type="date" value="${task.dueDate || ''}" aria-label="期限">
+            <div class="goal-review-task-copy">
+              <span class="goal-review-task-text">${escapeHtml(task.text || '名称未設定のタスク')}</span>
+              ${task.dueDate ? `<span class="goal-review-task-due">期限 ${escapeHtml(task.dueDate)}</span>` : ''}
             </div>
+            <label class="goal-review-focus-label">
+              <input class="goal-review-focus-checkbox" type="checkbox"${focusedTaskSet.has(task.id) ? ' checked' : ''}>
+              <span>重点にする</span>
+            </label>
+            <button class="btn-open-review-project" type="button" data-project-id="${group.project.id}" aria-label="${escapeHtml(group.project.title || 'プロジェクト')}でタスクを編集">編集</button>
           </div>`).join('')}
       </section>`).join('') : `
-      <p class="goal-review-empty">未完了タスクはありません。プロジェクトに次の一歩を追加できます。</p>`}
+      <p class="goal-review-empty">未完了タスクはありません。タスクはプロジェクトから追加できます。</p>`}
     <div class="goal-review-fields">
       <label class="goal-review-field">
         <span>今回の気づき・方針</span>
@@ -1328,26 +1339,37 @@ async function renderGoalReviewPanel() {
       <span id="goal-review-save-status" class="goal-review-save-status" aria-live="polite"></span>
     </div>`;
 
+  const focusCheckboxes = [...container.querySelectorAll('.goal-review-focus-checkbox')];
+  const updateFocusCount = () => {
+    const selectedCount = focusCheckboxes.filter(input => input.checked).length;
+    const count = container.querySelector('.goal-review-total');
+    count.textContent = `重点 ${selectedCount}/3`;
+    focusCheckboxes.forEach(input => {
+      input.disabled = !input.checked && selectedCount >= 3;
+    });
+  };
+  focusCheckboxes.forEach(input => input.addEventListener('change', updateFocusCount));
+  updateFocusCount();
+
+  container.querySelectorAll('.btn-open-review-project').forEach(button => {
+    button.addEventListener('click', async () => {
+      state.currentProjectId = Number(button.dataset.projectId);
+      await renderProjectList();
+    });
+  });
+
   container.querySelector('#btn-save-goal-review').addEventListener('click', async event => {
     const saveButton = event.currentTarget;
     saveButton.disabled = true;
-    const rows = [...container.querySelectorAll('.goal-review-task')];
-    for (const row of rows) {
-      const task = taskMap.get(Number(row.dataset.reviewTaskId));
-      if (!task) continue;
-      task.completed = row.querySelector('.goal-review-task-complete').checked;
-      task.text = row.querySelector('.goal-review-task-text').value.trim();
-      task.dueDate = row.querySelector('.goal-review-task-due').value;
-      await DB.updateGoalTask(task);
-    }
-
     const updatedGoal = await DB.getGoal(state.currentGoalId);
     updatedGoal.lastReviewedAt = formatDate(new Date());
     updatedGoal.reviewNote = container.querySelector('#goal-review-note').value.trim();
     updatedGoal.nextReviewAt = container.querySelector('#goal-review-next-date').value;
+    updatedGoal.focusTaskIds = focusCheckboxes
+      .filter(input => input.checked)
+      .map(input => Number(input.closest('.goal-review-task').dataset.reviewTaskId));
     await DB.updateGoal(updatedGoal);
     updateGoalReviewStatus(updatedGoal);
-    await renderProjectList();
     await renderGoalList();
     await renderGoalReviewPanel();
     document.getElementById('goal-review-save-status').textContent = '見直しを記録しました';
