@@ -365,12 +365,12 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .goal-card-meta {
-  display:flex; align-items:center; gap:10px; margin-bottom:8px;
+  display:flex; flex-wrap:wrap; align-items:center; gap:5px 10px; margin-bottom:8px;
 }
 .goal-projects-count {
   font-size:11px; font-weight:600; color:var(--accent);
   background:var(--accent-soft); border-radius:var(--r-pill);
-  padding:2px 9px;
+  padding:2px 9px; white-space:nowrap; flex-shrink:0;
 }
 .goal-category-label {
   font-size:11px; font-weight:600; color:var(--category-color); white-space:nowrap;
@@ -496,7 +496,7 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   .goal-review-task { align-items:flex-start; gap:7px; }
   .goal-review-focus-label { flex-direction:column; gap:2px; }
   .btn-open-review-project { padding:5px; }
-  .goal-card-meta { flex-wrap:wrap; gap:5px 9px; }
+  .goal-card-meta { gap:5px 9px; }
 }
 
 /* Project Accordion */
