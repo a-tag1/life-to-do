@@ -223,8 +223,14 @@ function applyDarkMode(mode) {
 /* ============================================================
    ルーター / ヘッダー更新
    ============================================================ */
-function navigate(id) {
+function navigate(id, { goToTodayInMonthly = false } = {}) {
   if (state.view === 'today') flushTodaySave();
+  if (goToTodayInMonthly) {
+    const today = new Date();
+    state.todayDate = today;
+    state.monthDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    state.selectedDate = formatDate(today);
+  }
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById(`view-${id}`).classList.add('active');
@@ -232,11 +238,14 @@ function navigate(id) {
   const navItem = document.querySelector(`.nav-item[data-view="${navId}"]`);
   if (navItem) navItem.classList.add('active');
   state.view = id;
-  ({ today: loadTodayView, monthly: loadMonthlyView, yearly: loadYearlyView,
-     vision: loadVisionView, tasks: loadTasksView, settings: loadSettingsView,
-     'goal-detail': loadGoalDetailView })[id]();
+  const loadView = id === 'monthly'
+    ? () => loadMonthlyView(goToTodayInMonthly)
+    : ({ today: loadTodayView, yearly: loadYearlyView, vision: loadVisionView,
+         tasks: loadTasksView, settings: loadSettingsView, 'goal-detail': loadGoalDetailView })[id];
+  const loadPromise = loadView();
   updateHeader();
   updateFAB();
+  return loadPromise;
 }
 
 const DAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
@@ -431,7 +440,7 @@ function initTodayView() {
 /* ============================================================
    今月ビュー
    ============================================================ */
-async function loadMonthlyView() {
+async function loadMonthlyView(scrollTodayToTop = false) {
   const year = state.monthDate.getFullYear();
   const month = state.monthDate.getMonth();
   const days = new Date(year, month + 1, 0).getDate();
@@ -551,7 +560,10 @@ async function loadMonthlyView() {
 
   // 今日にスクロール
   const todayEl = container.querySelector('.month-day.today');
-  if (todayEl) setTimeout(() => todayEl.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80);
+  if (todayEl) setTimeout(() => todayEl.scrollIntoView({
+    block: scrollTodayToTop ? 'start' : 'center',
+    behavior: 'smooth'
+  }), 80);
 
   // ★ ボタン
   container.querySelectorAll('.star-btn').forEach(btn => {
@@ -2513,8 +2525,7 @@ async function init() {
 
   // FAB
   document.getElementById('fab-today').addEventListener('click', () => {
-    state.todayDate = new Date();
-    navigate('today');
+    navigate('monthly', { goToTodayInMonthly: true });
   });
 
   // モーダル閉じる
