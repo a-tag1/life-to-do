@@ -1343,13 +1343,35 @@ async function renderGoalReviewPanel() {
         <span>今回の気づき・方針</span>
         <textarea id="goal-review-note" rows="3" placeholder="続ける理由や、やり方を変えたい点など">${escapeHtml(goal.reviewNote || '')}</textarea>
       </label>
-      <label class="goal-review-field goal-review-date-field">
-        <span>次回見直し日</span>
-        <input id="goal-review-next-date" type="date" value="${goal.nextReviewAt || ''}">
-      </label>
+      <div class="goal-review-field goal-review-date-field">
+        <label for="goal-review-next-date">次回見直し日</label>
+        <div class="goal-review-date-controls">
+          <input id="goal-review-next-date" type="date" value="${goal.nextReviewAt || ''}">
+          <button id="btn-clear-goal-review-date" class="btn-clear-goal-review-date" type="button" aria-label="次回見直し日をクリア">クリア</button>
+        </div>
+      </div>
       <button id="btn-save-goal-review" class="btn-save-goal-review" type="button">今回の見直しを記録</button>
       <span id="goal-review-save-status" class="goal-review-save-status" aria-live="polite"></span>
     </div>`;
+
+  const nextReviewDate = container.querySelector('#goal-review-next-date');
+  const clearDateButton = container.querySelector('#btn-clear-goal-review-date');
+  const updateDateControls = () => {
+    clearDateButton.disabled = !nextReviewDate.value;
+  };
+  const onDateChange = () => {
+    updateDateControls();
+    container.querySelector('#goal-review-save-status').textContent = nextReviewDate.value
+      ? '日付を変更しました。「今回の見直しを記録」で保存してください'
+      : '日付をクリアしました。「今回の見直しを記録」で保存してください';
+  };
+  nextReviewDate.addEventListener('input', onDateChange);
+  nextReviewDate.addEventListener('change', onDateChange);
+  clearDateButton.addEventListener('click', () => {
+    nextReviewDate.value = '';
+    onDateChange();
+  });
+  updateDateControls();
 
   const focusCheckboxes = [...container.querySelectorAll('.goal-review-focus-checkbox')];
   const updateFocusCount = () => {

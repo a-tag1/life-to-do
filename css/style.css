@@ -500,6 +500,13 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
 .goal-review-field input { width:100%; padding:8px 9px; border:1px solid var(--sep); border-radius:var(--r-sm); background:var(--inset); color:var(--text); font:inherit; font-weight:400; }
 .goal-review-field textarea { resize:vertical; line-height:1.6; }
 .goal-review-date-field { max-width:240px; }
+.goal-review-date-controls { display:flex; align-items:center; gap:8px; }
+.goal-review-date-controls input { flex:1; min-width:0; }
+.btn-clear-goal-review-date {
+  flex-shrink:0; min-height:44px; padding:8px 10px; border:1px solid var(--sep);
+  border-radius:var(--r-sm); background:var(--surface); color:var(--accent); font:inherit;
+}
+.btn-clear-goal-review-date:disabled { opacity:.45; cursor:default; }
 .btn-save-goal-review { min-height:42px; border:0; border-radius:var(--r-sm); background:var(--accent); color:#fff; font-size:14px; font-weight:700; }
 .btn-save-goal-review:disabled { opacity:.6; }
 .goal-review-save-status { min-height:18px; color:var(--text-2); font-size:12px; }
