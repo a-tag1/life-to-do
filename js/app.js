@@ -1300,6 +1300,9 @@ async function renderGoalReviewPanel() {
   if (!goal) return;
 
   const projects = await DB.getProjectsForGoal(state.currentGoalId);
+  const scheduledDates = new Set((await DB.getGoals())
+    .filter(item => item.id !== goal.id && item.nextReviewAt)
+    .map(item => item.nextReviewAt));
   const taskGroups = await Promise.all(projects.map(async project => ({
     project,
     tasks: (await DB.getTasksForProject(project.id)).filter(task => !task.completed)
@@ -1344,10 +1347,21 @@ async function renderGoalReviewPanel() {
         <textarea id="goal-review-note" rows="3" placeholder="続ける理由や、やり方を変えたい点など">${escapeHtml(goal.reviewNote || '')}</textarea>
       </label>
       <div class="goal-review-field goal-review-date-field">
-        <label for="goal-review-next-date">次回見直し日</label>
+        <span>次回見直し日</span>
         <div class="goal-review-date-controls">
-          <input id="goal-review-next-date" type="date" value="${goal.nextReviewAt || ''}">
+          <input id="goal-review-next-date" type="hidden" value="${goal.nextReviewAt || ''}">
+          <output id="goal-review-date-display" class="goal-review-date-display" aria-live="polite"></output>
           <button id="btn-clear-goal-review-date" class="btn-clear-goal-review-date" type="button" aria-label="次回見直し日をクリア">クリア</button>
+        </div>
+        <div class="goal-review-calendar" role="group" aria-label="次回見直し日を選択">
+          <div class="goal-review-calendar-heading">
+            <button id="btn-goal-review-prev-month" type="button" aria-label="前の月">‹</button>
+            <strong id="goal-review-calendar-month"></strong>
+            <button id="btn-goal-review-next-month" type="button" aria-label="次の月">›</button>
+          </div>
+          <div class="goal-review-calendar-weekdays" aria-hidden="true"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span></div>
+          <div id="goal-review-calendar-days" class="goal-review-calendar-days"></div>
+          <p class="goal-review-calendar-legend"><span aria-hidden="true"></span>他の目標の見直し日</p>
         </div>
       </div>
       <button id="btn-save-goal-review" class="btn-save-goal-review" type="button">今回の見直しを記録</button>
@@ -1356,22 +1370,76 @@ async function renderGoalReviewPanel() {
 
   const nextReviewDate = container.querySelector('#goal-review-next-date');
   const clearDateButton = container.querySelector('#btn-clear-goal-review-date');
+  const dateDisplay = container.querySelector('#goal-review-date-display');
+  const calendarMonthLabel = container.querySelector('#goal-review-calendar-month');
+  const calendarDays = container.querySelector('#goal-review-calendar-days');
+  const initialCalendarDate = nextReviewDate.value
+    ? new Date(`${nextReviewDate.value}T00:00:00`)
+    : new Date();
+  const calendarMonth = new Date(initialCalendarDate.getFullYear(), initialCalendarDate.getMonth(), 1);
   const updateDateControls = () => {
     clearDateButton.disabled = !nextReviewDate.value;
   };
+  const updateDateDisplay = () => {
+    dateDisplay.textContent = nextReviewDate.value
+      ? new Date(`${nextReviewDate.value}T00:00:00`).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+      : '日付を選択';
+  };
+  const renderDateCalendar = () => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const monthLabel = `${year}年${month + 1}月`;
+    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = Array.from({ length: offset }, () => '<span class="goal-review-calendar-empty" aria-hidden="true"></span>');
+    calendarMonthLabel.textContent = monthLabel;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = formatDate(new Date(year, month, day));
+      const isScheduled = scheduledDates.has(date);
+      const isSelected = nextReviewDate.value === date;
+      const isToday = formatDate(new Date()) === date;
+      const accessibleDate = new Date(year, month, day).toLocaleDateString('ja-JP', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      });
+      const classes = [
+        'goal-review-calendar-day',
+        isScheduled ? 'is-scheduled' : '',
+        isSelected ? 'is-selected' : '',
+        isToday ? 'is-today' : ''
+      ].filter(Boolean).join(' ');
+      cells.push(`<button class="${classes}" type="button" data-date="${date}" aria-label="${accessibleDate}${isScheduled ? '、他の目標に見直し予定あり' : ''}" aria-pressed="${isSelected}">${day}</button>`);
+    }
+    calendarDays.innerHTML = cells.join('');
+  };
   const onDateChange = () => {
     updateDateControls();
+    updateDateDisplay();
+    renderDateCalendar();
     container.querySelector('#goal-review-save-status').textContent = nextReviewDate.value
       ? '日付を変更しました。「今回の見直しを記録」で保存してください'
       : '日付をクリアしました。「今回の見直しを記録」で保存してください';
   };
-  nextReviewDate.addEventListener('input', onDateChange);
-  nextReviewDate.addEventListener('change', onDateChange);
+  container.querySelector('#btn-goal-review-prev-month').addEventListener('click', () => {
+    calendarMonth.setMonth(calendarMonth.getMonth() - 1);
+    renderDateCalendar();
+  });
+  container.querySelector('#btn-goal-review-next-month').addEventListener('click', () => {
+    calendarMonth.setMonth(calendarMonth.getMonth() + 1);
+    renderDateCalendar();
+  });
+  calendarDays.addEventListener('click', event => {
+    const dayButton = event.target.closest('button[data-date]');
+    if (!dayButton) return;
+    nextReviewDate.value = dayButton.dataset.date;
+    onDateChange();
+  });
   clearDateButton.addEventListener('click', () => {
     nextReviewDate.value = '';
     onDateChange();
   });
   updateDateControls();
+  updateDateDisplay();
+  renderDateCalendar();
 
   const focusCheckboxes = [...container.querySelectorAll('.goal-review-focus-checkbox')];
   const updateFocusCount = () => {

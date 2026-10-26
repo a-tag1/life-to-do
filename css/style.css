@@ -499,9 +499,28 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
 .goal-review-field textarea,
 .goal-review-field input { width:100%; padding:8px 9px; border:1px solid var(--sep); border-radius:var(--r-sm); background:var(--inset); color:var(--text); font:inherit; font-weight:400; }
 .goal-review-field textarea { resize:vertical; line-height:1.6; }
-.goal-review-date-field { max-width:240px; }
+.goal-review-date-field { max-width:320px; }
 .goal-review-date-controls { display:flex; align-items:center; gap:8px; }
-.goal-review-date-controls input { flex:1; min-width:0; }
+.goal-review-date-display { display:block; flex:1; min-width:0; padding:8px 9px; border:1px solid var(--sep); border-radius:var(--r-sm); background:var(--inset); color:var(--text); font-size:13px; font-weight:400; }
+.goal-review-calendar { margin-top:6px; }
+.goal-review-calendar-heading { display:flex; align-items:center; justify-content:space-between; min-height:36px; color:var(--text); }
+.goal-review-calendar-heading strong { font-size:13px; }
+.goal-review-calendar-heading button { width:36px; height:36px; border:0; border-radius:var(--r-sm); background:transparent; color:var(--text); font-size:24px; line-height:1; }
+.goal-review-calendar-weekdays,
+.goal-review-calendar-days { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:3px; text-align:center; }
+.goal-review-calendar-weekdays { padding:4px 0; color:var(--text-2); font-size:11px; }
+.goal-review-calendar-days { align-items:center; }
+.goal-review-calendar-empty,
+.goal-review-calendar-day { width:100%; aspect-ratio:1; }
+.goal-review-calendar-day { position:relative; display:grid; place-items:center; padding:0; border:1px solid transparent; border-radius:50%; background:transparent; color:var(--text); font:inherit; font-size:12px; }
+.goal-review-calendar-day.is-today { border-color:var(--accent); }
+.goal-review-calendar-day.is-selected { background:var(--accent); color:#fff; }
+.goal-review-calendar-day.is-scheduled::after,
+.goal-review-calendar-legend span { width:4px; height:4px; border-radius:50%; background:var(--star-color); }
+.goal-review-calendar-day.is-scheduled::after { position:absolute; bottom:3px; left:calc(50% - 2px); content:''; }
+.goal-review-calendar-day.is-selected.is-scheduled::after { background:#fff; }
+.goal-review-calendar-legend { display:flex; align-items:center; gap:6px; margin-top:6px; color:var(--text-2); font-size:11px; font-weight:400; }
+.goal-review-calendar-legend span { flex-shrink:0; }
 .btn-clear-goal-review-date {
   flex-shrink:0; min-height:44px; padding:8px 10px; border:1px solid var(--sep);
   border-radius:var(--r-sm); background:var(--surface); color:var(--accent); font:inherit;
