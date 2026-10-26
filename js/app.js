@@ -191,6 +191,7 @@ const state = {
   categories: [],
   currentGoalId: null,
   currentProjectId: null,
+  goalEditMode: false,
   visionTab: 'goals'
 };
 
@@ -226,6 +227,10 @@ function applyDarkMode(mode) {
    ============================================================ */
 function navigate(id, { goToTodayInMonthly = false } = {}) {
   if (state.view === 'today') flushTodaySave();
+  if (state.view === 'goal-detail' && id !== 'goal-detail') {
+    state.goalEditMode = false;
+    updateGoalEditModeButton();
+  }
   if (goToTodayInMonthly) {
     const today = new Date();
     state.todayDate = today;
@@ -1306,9 +1311,22 @@ function updateGoalReviewStatus(goal) {
   button.classList.toggle('is-due', !!goal.nextReviewAt && goal.nextReviewAt <= today);
 }
 
+function updateGoalEditModeButton() {
+  const button = document.getElementById('btn-toggle-goal-edit');
+  const view = document.getElementById('view-goal-detail');
+  if (!button || !view) return;
+  const active = state.goalEditMode;
+  button.setAttribute('aria-pressed', String(active));
+  button.setAttribute('aria-label', active ? '編集モードを終了' : '編集モードを開始');
+  button.title = active ? '編集モードを終了' : '編集モードを開始';
+  view.classList.toggle('is-edit-mode', active);
+}
+
 async function loadGoalDetailView() {
   const [goal, categories] = await Promise.all([DB.getGoal(state.currentGoalId), DB.getCategories()]);
   if (!goal) { navigate('vision'); return; }
+  state.goalEditMode = false;
+  updateGoalEditModeButton();
 
   document.getElementById('header-title').textContent = goal.title;
 
@@ -1375,6 +1393,12 @@ function initGoalDetailView() {
     if (!panel.hidden) await renderGoalReviewPanel();
   });
 
+  document.getElementById('btn-toggle-goal-edit').addEventListener('click', async () => {
+    state.goalEditMode = !state.goalEditMode;
+    updateGoalEditModeButton();
+    await renderProjectList();
+  });
+
   document.getElementById('btn-add-project').addEventListener('click', async () => {
     if (!state.currentGoalId) return;
     const newId = await DB.addProject({ goalId: state.currentGoalId, title: '', order: Date.now(), completed: false });
@@ -1389,7 +1413,7 @@ function initGoalDetailView() {
 
   document.getElementById('project-move-modal-close').addEventListener('click', closeProjectMoveModal);
   document.getElementById('project-move-modal-overlay').addEventListener('click', closeProjectMoveModal);
-  document.getElementById('btn-confirm-project-move').addEventListener('click', moveSelectedProject);
+  document.getElementById('btn-confirm-project-move').addEventListener('click', confirmSelectedMove);
   document.getElementById('btn-undo-project-move').addEventListener('click', async () => {
     if (!projectMoveUndo) return;
     const undo = projectMoveUndo;
@@ -1593,13 +1617,41 @@ async function openProjectMoveModal(projectId) {
     .filter(goal => goal.id !== project.goalId)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const select = document.getElementById('project-move-goal-select');
+  document.getElementById('project-move-modal-title').textContent = '移動先のビジョン';
+  document.getElementById('project-move-destination-label').textContent = 'ビジョンを選択';
   select.innerHTML = destinations.length
     ? `<option value="">移動先を選択...</option>${destinations.map(goal =>
       `<option value="${goal.id}">${escapeHtml(goal.title || '名称未設定のビジョン')}</option>`
     ).join('')}`
     : '<option value="">移動できるビジョンがありません</option>';
   document.getElementById('btn-confirm-project-move').disabled = !destinations.length;
-  pendingProjectMove = { projectId, sourceGoalId: project.goalId };
+  pendingProjectMove = { type: 'project', projectId, sourceGoalId: project.goalId };
+  document.getElementById('project-move-modal').classList.remove('hidden');
+}
+
+async function openTaskMoveModal(taskId) {
+  const [tasks, projects, goals] = await Promise.all([DB.getAllGoalTasks(), DB.getAllProjects(), DB.getGoals()]);
+  const task = tasks.find(item => item.id === taskId);
+  if (!task) return;
+  const goalMap = new Map(goals.map(goal => [goal.id, goal]));
+  const destinations = projects
+    .filter(project => project.id !== task.projectId)
+    .sort((a, b) => {
+      const goalOrder = (goalMap.get(a.goalId)?.order ?? 0) - (goalMap.get(b.goalId)?.order ?? 0);
+      return goalOrder || (a.order ?? 0) - (b.order ?? 0);
+    });
+  const select = document.getElementById('project-move-goal-select');
+  document.getElementById('project-move-modal-title').textContent = '移動先のプロジェクト';
+  document.getElementById('project-move-destination-label').textContent = 'プロジェクトを選択';
+  select.innerHTML = destinations.length
+    ? `<option value="">移動先を選択...</option>${destinations.map(project => {
+      const goalName = goalMap.get(project.goalId)?.title || '名称未設定のビジョン';
+      const projectName = project.title || '名称未設定のプロジェクト';
+      return `<option value="${project.id}">${escapeHtml(`${goalName} / ${projectName}`)}</option>`;
+    }).join('')}`
+    : '<option value="">移動できるプロジェクトがありません</option>';
+  document.getElementById('btn-confirm-project-move').disabled = !destinations.length;
+  pendingProjectMove = { type: 'task', taskId, sourceProjectId: task.projectId };
   document.getElementById('project-move-modal').classList.remove('hidden');
 }
 
@@ -1636,6 +1688,53 @@ async function moveSelectedProject() {
     if (!current) return;
     await DB.updateProject({ ...current, goalId: previousGoalId, order: previousOrder });
     if (state.view === 'goal-detail') await renderProjectList();
+  });
+}
+
+async function confirmSelectedMove() {
+  if (pendingProjectMove?.type === 'task') return moveSelectedTask();
+  return moveSelectedProject();
+}
+
+async function moveSelectedTask() {
+  const moveRequest = pendingProjectMove;
+  if (!moveRequest || moveRequest.type !== 'task') return;
+  const targetProjectId = Number(document.getElementById('project-move-goal-select').value);
+  if (!targetProjectId) return;
+
+  const [tasks, projects] = await Promise.all([DB.getAllGoalTasks(), DB.getAllProjects()]);
+  const task = tasks.find(item => item.id === moveRequest.taskId);
+  const destination = projects.find(project => project.id === targetProjectId);
+  if (!task || task.projectId !== moveRequest.sourceProjectId || !destination || destination.id === task.projectId) {
+    closeProjectMoveModal();
+    return;
+  }
+
+  const previousProjectId = task.projectId;
+  const previousOrder = task.order;
+  const nextOrder = tasks
+    .filter(item => item.projectId === targetProjectId)
+    .reduce((max, item) => Math.max(max, item.order ?? -1), -1) + 1;
+  const openProjectIds = new Set([...document.querySelectorAll('#project-list .project-accordion.open')]
+    .map(accordion => Number(accordion.dataset.id)));
+  await DB.updateGoalTask({ ...task, projectId: targetProjectId, order: nextOrder });
+  closeProjectMoveModal();
+  if (state.view === 'goal-detail') {
+    await renderProjectList();
+    openProjectIds.add(targetProjectId);
+    openProjectIds.forEach(projectId => {
+      document.querySelector(`#project-list .project-accordion[data-id="${projectId}"]`)?.classList.add('open');
+    });
+  }
+
+  showProjectMoveToast(`${task.text || 'タスク'}を移動しました`, async () => {
+    const current = (await DB.getAllGoalTasks()).find(item => item.id === task.id);
+    if (!current || current.projectId !== targetProjectId) return;
+    await DB.updateGoalTask({ ...current, projectId: previousProjectId, order: previousOrder });
+    if (state.view === 'goal-detail') {
+      await renderProjectList();
+      document.querySelector(`#project-list .project-accordion[data-id="${previousProjectId}"]`)?.classList.add('open');
+    }
   });
 }
 
@@ -1680,7 +1779,7 @@ async function renderProjectList() {
     return `
       <div class="project-accordion${project.completed ? ' completed-item' : ''}" data-id="${project.id}">
         <div class="project-accordion-header">
-          <span class="drag-handle project-drag-handle" aria-label="並び替え">⠿</span>
+          ${state.goalEditMode ? '<span class="drag-handle project-drag-handle" aria-label="並び替え">⠿</span>' : ''}
           <span class="accordion-chevron">›</span>
           <div class="project-title-wrap">
             <input class="project-title-input" data-id="${project.id}"
@@ -1688,11 +1787,11 @@ async function renderProjectList() {
           </div>
           <span class="project-task-badge">${done}/${tasks.length}</span>
           <span class="project-header-actions">
-            <button class="btn-project-move" data-id="${project.id}" type="button" aria-label="別のビジョンへ移動" title="別のビジョンへ移動">
+            ${state.goalEditMode ? `<button class="btn-project-move" data-id="${project.id}" type="button" aria-label="別のビジョンへ移動" title="別のビジョンへ移動">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4" />
               </svg>
-            </button>
+            </button>` : ''}
             <input type="checkbox" class="project-complete-checkbox" data-id="${project.id}"${project.completed ? ' checked' : ''} aria-label="完了">
             <button class="btn-project-delete" data-id="${project.id}" aria-label="削除">×</button>
           </span>
@@ -1701,12 +1800,17 @@ async function renderProjectList() {
           <div class="project-tasks" data-project-id="${project.id}">
             ${tasks.map(task => `
               <div class="project-task-item${category ? ' has-category' : ''}${task.completed ? ' completed-item' : ''}" data-id="${task.id}"${categoryStyle(category)}>
-                <span class="drag-handle project-task-drag-handle" aria-label="並び替え">⠿</span>
+                ${state.goalEditMode ? '<span class="drag-handle project-task-drag-handle" aria-label="並び替え">⠿</span>' : ''}
                 <input type="checkbox" class="project-task-checkbox" data-id="${task.id}"${task.completed ? ' checked' : ''}>
                 <div class="project-task-body">
                   <textarea class="project-task-text${task.completed ? ' completed' : ''}" data-id="${task.id}" rows="1" placeholder="タスクを入力..."></textarea>
                   <input type="date" class="project-task-due" data-id="${task.id}" value="${task.dueDate || ''}">
                 </div>
+                ${state.goalEditMode ? `<button class="btn-project-task-move" data-id="${task.id}" type="button" aria-label="別のプロジェクトへ移動" title="別のプロジェクトへ移動">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 7h15l-3-3m3 3-3 3M20 17H5l3 3m-3-3 3-3" />
+                  </svg>
+                </button>` : ''}
                 <button class="btn-project-task-delete" data-id="${task.id}" aria-label="削除">×</button>
               </div>`).join('')}
           </div>
@@ -1733,6 +1837,7 @@ async function renderProjectList() {
     header.addEventListener('click', e => {
       if (e.target.closest('.btn-project-delete') ||
           e.target.closest('.btn-project-move') ||
+          e.target.closest('.btn-project-task-move') ||
           e.target.closest('.project-title-input') ||
           e.target.closest('.project-complete-checkbox') ||
           e.target.closest('.project-drag-handle')) return;
@@ -1742,6 +1847,9 @@ async function renderProjectList() {
 
   container.querySelectorAll('.btn-project-move').forEach(btn => {
     btn.addEventListener('click', () => openProjectMoveModal(parseInt(btn.dataset.id)));
+  });
+  container.querySelectorAll('.btn-project-task-move').forEach(btn => {
+    btn.addEventListener('click', () => openTaskMoveModal(parseInt(btn.dataset.id)));
   });
 
   // タイトル入力クリック伝播防止
@@ -1844,18 +1952,20 @@ async function renderProjectList() {
   });
 
   // 並び替え：プロジェクト
-  enableDragReorder(container, '.project-accordion', '.project-drag-handle', async ids => {
-    await persistReorder(projects, ids, DB.updateProject);
-  });
-
-  // 並び替え：プロジェクト内タスク
-  container.querySelectorAll('.project-tasks').forEach(taskContainer => {
-    const projectId = parseInt(taskContainer.dataset.projectId);
-    const tasksForThis = allTasks[projects.findIndex(p => p.id === projectId)] || [];
-    enableDragReorder(taskContainer, '.project-task-item', '.project-task-drag-handle', async ids => {
-      await persistReorder(tasksForThis, ids, DB.updateGoalTask);
+  if (state.goalEditMode) {
+    enableDragReorder(container, '.project-accordion', '.project-drag-handle', async ids => {
+      await persistReorder(projects, ids, DB.updateProject);
     });
-  });
+
+    // 並び替え：プロジェクト内タスク
+    container.querySelectorAll('.project-tasks').forEach(taskContainer => {
+      const projectId = parseInt(taskContainer.dataset.projectId);
+      const tasksForThis = allTasks[projects.findIndex(p => p.id === projectId)] || [];
+      enableDragReorder(taskContainer, '.project-task-item', '.project-task-drag-handle', async ids => {
+        await persistReorder(tasksForThis, ids, DB.updateGoalTask);
+      });
+    });
+  }
 
   if (state.currentProjectId) {
     const target = container.querySelector(`.project-accordion[data-id="${state.currentProjectId}"]`);

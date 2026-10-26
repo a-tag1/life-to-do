@@ -172,6 +172,13 @@
           </button>
           <div id="goal-review-panel" class="goal-review-panel" hidden></div>
         </section>
+        <div class="project-list-toolbar">
+          <button id="btn-toggle-goal-edit" class="btn-toggle-goal-edit" type="button" aria-label="編集モードを開始" aria-pressed="false" title="編集モードを開始">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>
+            </svg>
+          </button>
+        </div>
         <div id="project-list"></div>
         <button id="btn-add-project" class="btn-add-project">＋ やりたいことを追加</button>
       </div>
@@ -398,7 +405,7 @@
         <button id="project-move-modal-close" class="btn-close" aria-label="閉じる">×</button>
       </div>
       <div class="modal-form">
-        <label for="project-move-goal-select">ビジョンを選択</label>
+        <label id="project-move-destination-label" for="project-move-goal-select">ビジョンを選択</label>
         <select id="project-move-goal-select"></select>
         <button id="btn-confirm-project-move" class="btn-primary" type="button">移動する</button>
       </div>

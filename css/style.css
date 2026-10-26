@@ -575,6 +575,14 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
 .goal-review-save-status { min-height:18px; color:var(--text-2); font-size:12px; }
 .goal-review-card-status { color:var(--text-2); font-size:11px; font-weight:600; white-space:nowrap; }
 .goal-review-card-status.is-due { color:var(--star-color); }
+.project-list-toolbar { display:flex; justify-content:flex-end; margin:10px 0 6px; }
+.btn-toggle-goal-edit {
+  width:40px; height:40px; display:grid; place-items:center; border:1px solid var(--sep);
+  border-radius:var(--r-sm); background:var(--surface); color:var(--text-2);
+}
+.btn-toggle-goal-edit svg { width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.btn-toggle-goal-edit:hover,
+#view-goal-detail.is-edit-mode .btn-toggle-goal-edit { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
 @media (max-width:400px) {
   .goal-review-task { align-items:flex-start; gap:7px; }
   .goal-review-focus-label { flex-direction:column; gap:2px; }
@@ -815,6 +823,12 @@ body.force-light .schedule-textarea { box-shadow:inset 0 1px 4px rgba(0,0,0,0.05
   transition:color var(--ease);
 }
 .btn-project-task-delete:active { color:#FF3B30; }
+.btn-project-task-move {
+  flex:0 0 30px; width:30px; height:30px; display:grid; place-items:center; margin-top:1px;
+  border:1px solid var(--sep); border-radius:var(--r-sm); background:var(--inset); color:var(--text-2);
+}
+.btn-project-task-move svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.btn-project-task-move:hover { border-color:var(--accent); color:var(--accent); }
 
 .btn-add-task-to-project {
   display:block; width:100%; margin-top:10px;
