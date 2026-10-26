@@ -70,7 +70,21 @@
 
     <!-- [2] 今月ビュー -->
     <section id="view-monthly" class="view">
-      <div id="monthly-days" class="view-content monthly-mobile-layout"></div>
+      <div id="monthly-days" class="view-content monthly-mobile-layout">
+        <div class="monthly-view-toggle" role="group" aria-label="今月の表示">
+          <button type="button" data-mode="calendar" data-label-ja="カレンダー" data-label-en="Calendar" aria-pressed="true">カレンダー</button>
+          <button type="button" data-mode="list" data-label-ja="一覧" data-label-en="List" aria-pressed="false">一覧</button>
+        </div>
+        <section class="mobile-month-calendar" aria-label="月間カレンダー">
+          <div id="mobile-calendar-weekdays" class="mobile-calendar-weekdays"></div>
+          <div id="mobile-calendar-grid" class="mobile-calendar-grid"></div>
+          <div class="mobile-calendar-legend" aria-hidden="true">
+            <span class="mobile-calendar-dot is-note"></span><span data-label-ja="メモ" data-label-en="Note">メモ</span>
+            <span class="mobile-calendar-dot is-task"></span><span data-label-ja="タスク" data-label-en="Tasks">タスク</span>
+          </div>
+        </section>
+        <div id="monthly-day-list"></div>
+      </div>
       <div class="desktop-monthly-layout">
         <section class="desktop-calendar-panel" aria-label="Monthly calendar">
           <div id="desktop-calendar-weekdays" class="desktop-calendar-weekdays"></div>
@@ -275,7 +289,7 @@
 
         <div class="app-version">
           <span>LifeToDo</span>
-          <span><span id="version-number">v1.8.6</span> &nbsp;·&nbsp; <span id="version-date">2026/10/26</span></span>
+          <span><span id="version-number">v1.8.7</span> &nbsp;·&nbsp; <span id="version-date">2026/10/26</span></span>
         </div>
 
       </div>

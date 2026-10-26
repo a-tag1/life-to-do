@@ -184,6 +184,7 @@ const state = {
   todayDate: new Date(_today),
   monthDate: new Date(_today.getFullYear(), _today.getMonth(), 1),
   selectedDate: formatDate(_today),
+  monthViewMode: 'calendar',
   yearDate: new Date(_today.getFullYear(), 0, 1),
   tmplTarget: null,
   templates: [],
@@ -450,7 +451,8 @@ async function loadMonthlyView(scrollTodayToTop = false) {
   const holidayMap = japaneseHolidays(year);
 
   const container = document.getElementById('monthly-days');
-  container.innerHTML = '<div class="empty-state">読み込み中...</div>';
+  const listContainer = document.getElementById('monthly-day-list');
+  listContainer.innerHTML = '<div class="empty-state">読み込み中...</div>';
 
   const [entries, allTasks, allProjects, allGoals] = await Promise.all([
     Promise.all(Array.from({ length: days }, (_, i) => DB.getDaily(`${monthStr}-${pad(i + 1)}`))),
@@ -513,13 +515,32 @@ async function loadMonthlyView(scrollTodayToTop = false) {
       </div>`;
   });
 
-  container.innerHTML = html;
+  listContainer.innerHTML = html;
 
-  renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, days, year, month, todayStr);
+  const selectDesktopDate = renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, days, year, month, todayStr);
+  renderMobileMonth(entries, allTasks, monthStr, days, year, month, todayStr, selectDesktopDate);
+
+  const updateMobileCalendarMarker = date => {
+    const calendarDay = document.querySelector(`#mobile-calendar-grid [data-date="${date}"]`);
+    const monthDay = listContainer.querySelector(`.month-day[data-date="${date}"]`);
+    if (!calendarDay || !monthDay) return;
+    const isStarred = monthDay.querySelector('.star-btn').classList.contains('active');
+    const hasNote = !!monthDay.querySelector('.month-note').value.trim();
+    const taskCount = monthDay.querySelectorAll('.month-day-task:not(.completed)').length;
+    calendarDay.classList.toggle('has-star', isStarred);
+    calendarDay.classList.toggle('has-note', hasNote);
+    calendarDay.classList.toggle('has-tasks', taskCount > 0);
+    calendarDay.querySelector('.mobile-calendar-star').textContent = isStarred ? '★' : '';
+    const ariaParts = [calendarDay.dataset.accessibleDate, calendarDay.dataset.holiday];
+    if (isStarred) ariaParts.push(uiLanguage === 'en' ? 'Starred' : '星マークあり');
+    if (hasNote) ariaParts.push(uiLanguage === 'en' ? 'Note' : 'メモあり');
+    if (taskCount) ariaParts.push(uiLanguage === 'en' ? `${taskCount} tasks` : `タスク${taskCount}件`);
+    calendarDay.setAttribute('aria-label', ariaParts.filter(Boolean).join(', '));
+  };
 
   // 期限タスクのチェックボックス
   const taskById = new Map(allTasks.map(t => [t.id, t]));
-  container.querySelectorAll('.month-day-task-checkbox').forEach(cb => {
+  listContainer.querySelectorAll('.month-day-task-checkbox').forEach(cb => {
     cb.addEventListener('change', async () => {
       const t = taskById.get(parseInt(cb.dataset.id));
       if (!t) return;
@@ -529,7 +550,7 @@ async function loadMonthlyView(scrollTodayToTop = false) {
     });
   });
 
-  container.querySelectorAll('.month-day-task-project-link').forEach(btn => {
+  listContainer.querySelectorAll('.month-day-task-project-link').forEach(btn => {
     btn.addEventListener('click', () => {
       const task = taskById.get(parseInt(btn.dataset.id));
       const project = task && projectMap.get(task.projectId);
@@ -541,7 +562,7 @@ async function loadMonthlyView(scrollTodayToTop = false) {
   });
 
   // 期限保存（変更で月内の表示位置を更新）
-  container.querySelectorAll('.month-day-task-due').forEach(inp => {
+  listContainer.querySelectorAll('.month-day-task-due').forEach(inp => {
     inp.addEventListener('change', async () => {
       const t = taskById.get(parseInt(inp.dataset.id));
       if (!t) return;
@@ -552,27 +573,28 @@ async function loadMonthlyView(scrollTodayToTop = false) {
   });
 
   // テキスト値をJSで設定（HTMLエンティティの問題を回避）
-  container.querySelectorAll('.month-note').forEach(ta => {
+  listContainer.querySelectorAll('.month-note').forEach(ta => {
     const e = entries[parseInt(ta.dataset.date.slice(-2)) - 1];
     ta.value = e ? (e.note || '') : '';
     autoResize(ta);
   });
 
   // 今日にスクロール
-  const todayEl = container.querySelector('.month-day.today');
-  if (todayEl) setTimeout(() => todayEl.scrollIntoView({
+  const todayEl = listContainer.querySelector('.month-day.today');
+  if (state.monthViewMode === 'list' && todayEl) setTimeout(() => todayEl.scrollIntoView({
     block: scrollTodayToTop ? 'start' : 'center',
     behavior: 'smooth'
   }), 80);
 
   // ★ ボタン
-  container.querySelectorAll('.star-btn').forEach(btn => {
+  listContainer.querySelectorAll('.star-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const date = btn.dataset.date;
       const entry = await DB.getDaily(date);
       entry.star = !entry.star;
       await DB.saveDaily(entry);
       btn.classList.toggle('active', entry.star);
+      updateMobileCalendarMarker(date);
     });
   });
 
@@ -581,9 +603,30 @@ async function loadMonthlyView(scrollTodayToTop = false) {
     const e = await DB.getDaily(date); e.note = val; DB.saveDaily(e);
   }, 500);
 
-  container.querySelectorAll('.month-note').forEach(ta => {
-    ta.addEventListener('input', () => { autoResize(ta); _saveNote(ta.dataset.date, ta.value); });
+  listContainer.querySelectorAll('.month-note').forEach(ta => {
+    ta.addEventListener('input', () => {
+      autoResize(ta);
+      _saveNote(ta.dataset.date, ta.value);
+      updateMobileCalendarMarker(ta.dataset.date);
+    });
   });
+
+  const setMonthViewMode = mode => {
+    state.monthViewMode = mode;
+    container.classList.toggle('is-list-mode', mode === 'list');
+    container.querySelectorAll('.monthly-view-toggle button').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+    });
+  };
+  container.querySelectorAll('.monthly-view-toggle button').forEach(button => {
+    button.onclick = () => {
+      setMonthViewMode(button.dataset.mode);
+      if (button.dataset.mode === 'list') {
+        listContainer.querySelector('.month-day.is-selected')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    };
+  });
+  setMonthViewMode(state.monthViewMode);
 
   updateHeader();
 }
@@ -640,6 +683,17 @@ function japaneseHolidays(year) {
   return holidays;
 }
 
+function updateMobileMonthSelection(date) {
+  document.querySelectorAll('#mobile-calendar-grid .mobile-calendar-day').forEach(button => {
+    const selected = button.dataset.date === date;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  document.querySelectorAll('#monthly-day-list .month-day').forEach(day => {
+    day.classList.toggle('is-selected', day.dataset.date === date);
+  });
+}
+
 function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, days, year, month, todayStr) {
   const grid = document.getElementById('desktop-calendar-grid');
   const weekdays = document.getElementById('desktop-calendar-weekdays');
@@ -690,10 +744,10 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
   }
   calendarHtml += Array.from({ length: (7 - ((firstOffset + days) % 7)) % 7 }, () => '<div class="desktop-calendar-empty" aria-hidden="true"></div>').join('');
   grid.innerHTML = calendarHtml;
-
   const updateSelectedDay = date => {
     state.selectedDate = date;
     grid.querySelectorAll('.desktop-calendar-day').forEach(button => button.classList.toggle('selected', button.dataset.date === date));
+            updateMobileMonthSelection(date);
     const entry = byDate.get(date) || {};
     const parsed = new Date(`${date}T00:00:00`);
     const holiday = holidays.get(date);
@@ -812,6 +866,58 @@ function renderDesktopMonth(entries, allTasks, projectMap, goalMap, monthStr, da
   });
   const languageSelect = document.getElementById('desktop-language-select');
   if (languageSelect) languageSelect.value = uiLanguage;
+  return date => {
+    updateSelectedDay(date);
+    updateUpcomingTasks(date);
+  };
+}
+
+function renderMobileMonth(entries, allTasks, monthStr, days, year, month, todayStr, selectDesktopDate) {
+  const grid = document.getElementById('mobile-calendar-grid');
+  const weekdays = document.getElementById('mobile-calendar-weekdays');
+  const locale = uiLanguage === 'en' ? 'en' : 'ja';
+  const weekStart = uiLanguage === 'en' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['月', '火', '水', '木', '金', '土', '日'];
+  const holidays = japaneseHolidays(year);
+  const firstOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const byDate = new Map(entries.map(entry => [entry.date, entry]));
+  weekdays.innerHTML = weekStart.map((day, index) => `<span${index === 6 ? ' class="sunday"' : ''}>${day}</span>`).join('');
+
+  let calendarHtml = Array.from({ length: firstOffset }, () => '<span class="mobile-calendar-empty" aria-hidden="true"></span>').join('');
+  for (let day = 1; day <= days; day++) {
+    const date = `${monthStr}-${String(day).padStart(2, '0')}`;
+    const weekday = new Date(year, month, day).getDay();
+    const entry = byDate.get(date) || {};
+    const holiday = holidays.get(date);
+    const holidayLabel = holiday ? (uiLanguage === 'en' ? HOLIDAY_NAMES_EN[holiday] || holiday : holiday) : '';
+    const memoText = typeof entry.note === 'string' && entry.note.trim();
+    const taskCount = allTasks.filter(task => task.dueDate === date && !task.completed).length;
+    const ariaDate = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(year, month, day));
+    const ariaParts = [ariaDate, holidayLabel];
+    if (entry.star) ariaParts.push(uiLanguage === 'en' ? 'Starred' : '星マークあり');
+    if (memoText) ariaParts.push(uiLanguage === 'en' ? 'Note' : 'メモあり');
+    if (taskCount) ariaParts.push(uiLanguage === 'en' ? `${taskCount} tasks` : `タスク${taskCount}件`);
+    const classes = [
+      'mobile-calendar-day',
+      date === todayStr ? 'today' : '',
+      date === state.selectedDate ? 'selected' : '',
+      weekday === 0 ? 'sunday' : '',
+      weekday === 6 ? 'saturday' : '',
+      holiday ? 'holiday' : '',
+      entry.star ? 'has-star' : '',
+      memoText ? 'has-note' : '',
+      taskCount ? 'has-tasks' : ''
+    ].filter(Boolean).join(' ');
+    calendarHtml += `<button type="button" class="${classes}" data-date="${date}" data-accessible-date="${escapeHtml(ariaDate)}" data-holiday="${escapeHtml(holidayLabel)}" aria-label="${escapeHtml(ariaParts.filter(Boolean).join(', '))}" aria-pressed="${date === state.selectedDate}">
+      <span class="mobile-calendar-day-number">${day}</span>
+      <span class="mobile-calendar-markers"><span class="mobile-calendar-star" aria-hidden="true">${entry.star ? '★' : ''}</span><span class="mobile-calendar-dot is-note"></span><span class="mobile-calendar-dot is-task"></span></span>
+    </button>`;
+  }
+  calendarHtml += Array.from({ length: (7 - ((firstOffset + days) % 7)) % 7 }, () => '<span class="mobile-calendar-empty" aria-hidden="true"></span>').join('');
+  grid.innerHTML = calendarHtml;
+  grid.querySelectorAll('.mobile-calendar-day').forEach(button => button.addEventListener('click', () => {
+    selectDesktopDate(button.dataset.date);
+  }));
+  updateMobileMonthSelection(state.selectedDate);
 }
 
 /* ============================================================
